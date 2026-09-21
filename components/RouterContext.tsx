@@ -25,6 +25,8 @@ export type View =
   | { name: 'accounts' }
   | { name: 'activities'; type: 'merchants' | 'employees' }
   | { name: 'user-report'; actorId: string; role: ActivityActorRole; actorName?: string; actorEmail?: string }
+  | { name: 'alerts' }
+  | { name: 'alerts-archive' }
   | { name: 'profile' };
 
 export interface RouterContextValue {
@@ -97,6 +99,10 @@ export function viewToPath(view: View): string {
       if (view.actorEmail) params.set('email', view.actorEmail);
       return `/activities/${view.actorId}?${params.toString()}`;
     }
+    case 'alerts':
+      return '/alerts';
+    case 'alerts-archive':
+      return '/alerts/archive';
     case 'profile':
       return '/profile';
     default:
@@ -143,6 +149,11 @@ export function pathToView(pathname: string, search: string): View | null {
   if (s[0] === 'merchants' && s.length === 1) return { name: 'merchants' };
   if (s[0] === 'accounts' && s.length === 1) return { name: 'accounts' };
   if (s[0] === 'profile' && s.length === 1) return { name: 'profile' };
+  if (s[0] === 'alerts') {
+    if (s.length === 1) return { name: 'alerts' };
+    if (s.length === 2 && s[1] === 'archive') return { name: 'alerts-archive' };
+    return null;
+  }
 
   if (s[0] === 'activities') {
     if (s.length === 1) {

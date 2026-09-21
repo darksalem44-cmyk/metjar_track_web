@@ -4,10 +4,12 @@ import type {
   ActivityEntityType,
   ActorSummary,
   ActivityEvent,
+  CurrencyCode,
   DailyPoint,
   UserRole,
 } from '@/lib/types';
-import { translateError } from '@/lib/constants';
+import { currencyLabels, translateError } from '@/lib/constants';
+import { formatPrice } from '@/lib/utils';
 
 /** الدور المخزَّن فعلياً في activity_events.actor_role هو واحد من هذه القيم الثلاث فقط. */
 export function normalizeRole(value: string | null | undefined): UserRole {
@@ -260,20 +262,180 @@ export const entityActionIcons: Record<ActivityEntityType, string> = {
   product: 'product',
 };
 
-export function activityPhrase(
-  action: ActivityAction,
-  entityType: ActivityEntityType,
-  entityName?: string,
-): string {
-  const entity = entityLabel(entityType);
-  switch (action) {
-    case 'created':
-      return `${entity}: ${entityName ?? ''}`.trim();
-    case 'updated':
-      return `تعديل ${entity}: ${entityName ?? ''}`.trim();
-    case 'deleted':
-      return `حذف ${entity}: ${entityName ?? ''}`.trim();
+
+// ─────────────── تفاصيل الحدث (activity_events.details) ───────────────
+
+/**
+ * عمود details يخزّن لقطة بيانات الكيان لحظة الحدث من مشغّلات قاعدة البيانات.
+ * بعض الصفوف القديمة قد تصل كنص JSON — نتعامل معها بأمان مثل تطبيق الموبايل.
+ */
+export function readEventDetails(value: any): Record<string, any> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
   }
+  return {};
+}
+
+/** مفاتيح تقنية لا تُعرض للمستخدم (معرّفات، تواقيت نظام، مسارات صور، إحداثيات المستخدم). */
+const hiddenDetailKeys = new Set([
+  'id',
+  'store_id',
+  'branch_id',
+  'created_by',
+  'deleted_at',
+  'deleted_by',
+  'created_at',
+  'updated_at',
+  'parent_store_id',
+  'custom_fields',
+  'cover_image_urls',
+  'images_url',
+  'signage_image_url',
+  'shamcash_qr_image_url',
+  'paymera_qr_image_url',
+  'user_latitude',
+  'user_longitude',
+  'actual_distance',
+]);
+
+/** ترتيب العرض المفضّل للحقول المعروفة في «تفاصيل النشاط». */
+const detailFieldOrder = [
+  'name',
+  'price',
+  'currency',
+  'category',
+  'description',
+  'address',
+  'phone',
+  'commercial_register',
+  'branch_code',
+  'open_at',
+  'close_at',
+  'notes',
+  'shamcash_wallet_id',
+  'paymera_wallet_id',
+  'is_best_seller',
+  'is_active',
+  'latitude',
+  'longitude',
+];
+
+const detailFieldLabels: Record<string, string> = {
+  name: 'الاسم',
+  price: 'السعر',
+  currency: 'العملة',
+  category: 'التصنيف',
+  description: 'الوصف',
+  address: 'العنوان',
+  phone: 'الهاتف',
+  commercial_register: 'السجل التجاري',
+  branch_code: 'رمز الفرع',
+  open_at: 'يفتح',
+  close_at: 'يغلق',
+  notes: 'ملاحظات',
+  shamcash_wallet_id: 'محفظة شام كاش',
+  paymera_wallet_id: 'محفظة بايميرا',
+  is_best_seller: 'الأكثر مبيعاً',
+  is_active: 'مفعّل',
+  latitude: 'خط العرض',
+  longitude: 'خط الطول',
+};
+
+function detailLabel(key: string): string {
+  return detailFieldLabels[key] ?? key;
+}
+
+/** تنسيق قيمة الحقل للعرض (bool، مصفوفة، سعر مع عملته، وقت HH:MM). */
+function formatDetailValue(key: string, value: unknown, details: Record<string, any>): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'boolean') return value ? 'نعم' : 'لا';
+  if (Array.isArray(value)) return value.length === 0 ? '—' : `${value.length} عنصر`;
+  if (typeof value === 'object') return '—';
+
+  if (key === 'price') {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return String(value);
+    const code = String(details['currency'] ?? 'SYP') as CurrencyCode;
+    return formatPrice(numeric, currencyLabels[code] ?? code);
+  }
+
+  const text = String(value).trim();
+  if (!text) return '—';
+  if (key === 'currency') return currencyLabels[text as CurrencyCode] ?? text;
+  if (key === 'open_at' || key === 'close_at') return text.slice(0, 5);
+  if (typeof value === 'number' && !Number.isInteger(value)) {
+    return String(Number(value.toFixed(6)));
+  }
+  return text;
+}
+
+/** أول حقل معبّر لكل نوع كيان — نفس ترتيب briefDetail في تطبيق الموبايل. */
+const briefKeysByEntity: Record<ActivityEntityType, string[]> = {
+  store: ['address', 'phone', 'commercial_register', 'category'],
+  branch: ['branch_code', 'address', 'phone', 'category'],
+  product: ['price', 'category', 'description'],
+};
+
+/** سطر مختصر يوضح ما تغيّر فعلاً في الحدث، مثل «العنوان: دمشق». */
+export function eventBriefDetail(rawDetails: any, entityType: ActivityEntityType): string {
+  const details = readEventDetails(rawDetails);
+  for (const key of briefKeysByEntity[entityType] ?? []) {
+    const value = formatDetailValue(key, details[key], details);
+    if (value !== '—') return `${detailLabel(key)}: ${value}`;
+  }
+
+  const fallbackKey = Object.keys(details).find(
+    (k) => !hiddenDetailKeys.has(k) && formatDetailValue(k, details[k], details) !== '—',
+  );
+  if (!fallbackKey) return '';
+  return `${detailLabel(fallbackKey)}: ${formatDetailValue(fallbackKey, details[fallbackKey], details)}`;
+}
+
+/** كل الحقول المعروضة في ورقة «تفاصيل النشاط»، مرتّبة وتسمياتها عربية. */
+export function eventDetailFields(rawDetails: any): { label: string; value: string }[] {
+  const details = readEventDetails(rawDetails);
+  const keys = Object.keys(details).filter((k) => !hiddenDetailKeys.has(k));
+  const ordered = [
+    ...detailFieldOrder.filter((k) => keys.includes(k)),
+    ...keys.filter((k) => !detailFieldOrder.includes(k)),
+  ];
+  return ordered
+    .map((key) => ({ label: detailLabel(key), value: formatDetailValue(key, details[key], details) }))
+    .filter((field) => field.value !== '—');
+}
+
+/** اسم الكيان من الحدث، ويرجع لـ details.name إذا كان entity_name فارغاً (مثل الموبايل). */
+export function eventName(ev: { entityName?: string; details?: any }): string {
+  const direct = (ev.entityName ?? '').trim();
+  if (direct) return direct;
+  return String(readEventDetails(ev.details)['name'] ?? '').trim();
+}
+
+const entityTargetLabels: Record<ActivityEntityType, string> = {
+  store: 'للمتجر',
+  branch: 'للفرع',
+  product: 'للمنتج',
+};
+
+export function entityTargetLabel(entityType: ActivityEntityType): string {
+  return entityTargetLabels[entityType];
+}
+
+/** جملة الحدث الكاملة مثل «عدّل للمتجر «متجر الساعة»». */
+export function eventPhrase(ev: {
+  action: ActivityAction;
+  entityType: ActivityEntityType;
+  entityName?: string;
+  details?: any;
+}): string {
+  const name = eventName(ev);
+  return `${actionLabel(ev.action)} ${entityTargetLabel(ev.entityType)}${name ? ` «${name}»` : ''}`;
 }
 
 export function entityLabel(entityType: ActivityEntityType): string {

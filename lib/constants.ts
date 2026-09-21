@@ -17,6 +17,9 @@ export const AppConstants = {
   pageSize: 20,
   pageSizeAccounts: 20,
   defaultTimeZone: 'Asia/Damascus',
+  // المفتاح العام لـ VAPID لتشغيل إشعارات PWA (يُولَّد بـ npx web-push generate-vapid-keys).
+  // يمكن ضبطه من متغير البيئة NEXT_PUBLIC_VAPID_PUBLIC_KEY وله الأولوية.
+  vapidPublicKey: '',
 };
 
 export const STORE_IMAGE_PREFIX = 'stores/';

@@ -7,10 +7,22 @@ import {
   getTimeline,
   getActorSummariesForActors,
   actionLabel,
+  entityTargetLabel,
+  eventBriefDetail,
+  eventDetailFields,
+  eventName,
+  eventPhrase,
 } from '@/lib/data/activities';
+import type { TimelineFilter } from '@/lib/data/activities';
 import { periodOptions } from '@/lib/constants';
-import type { ActivityEvent, ActivityEntityType, PeriodKey, UserRole } from '@/lib/types';
-import { getPeriodRange, relativeTime } from '@/lib/utils';
+import type {
+  ActivityAction,
+  ActivityEvent,
+  ActivityEntityType,
+  PeriodKey,
+  UserRole,
+} from '@/lib/types';
+import { formatDateTime, getPeriodRange, relativeTime } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
 import { CalendarDays, PlusCircle, PenLine, Trash2, Box, Split } from 'lucide-react';
@@ -25,6 +37,20 @@ import {
 } from 'recharts';
 import { Button, CenteredSpinner, Chip, EmptyState, PageHeader } from '@/components/ui/controls';
 import { Modal } from '@/components/ui/modals';
+
+const ENTITY_FILTERS: [ActivityEntityType | 'all', string][] = [
+  ['all', 'الكل'],
+  ['store', 'متاجر'],
+  ['branch', 'فروع'],
+  ['product', 'منتجات'],
+];
+
+const ACTION_FILTERS: [ActivityAction | 'all', string][] = [
+  ['all', 'الكل'],
+  ['created', 'إضافة'],
+  ['updated', 'تعديل'],
+  ['deleted', 'حذف'],
+];
 
 export default function UserReport({
   actorId,
@@ -49,9 +75,11 @@ export default function UserReport({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [entityFilter, setEntityFilter] = useState<ActivityEntityType | 'all'>('all');
+  const [actionFilter, setActionFilter] = useState<ActivityAction | 'all'>('all');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [dayEvents, setDayEvents] = useState<ActivityEvent[]>([]);
   const [dayLoading, setDayLoading] = useState(false);
+  const [detailEvent, setDetailEvent] = useState<ActivityEvent | null>(null);
 
   const [from, to] = useMemo(() => {
     if (range === 'custom') {
@@ -69,6 +97,12 @@ export default function UserReport({
     return [rf, rt];
   }, [range, customFrom, customTo]);
 
+  /** المرشحات الحالية (النوع + الإجراء) بصيغة getTimeline — يشاركها التحميل والمزيد. */
+  const currentFilter = (): TimelineFilter => ({
+    entityType: entityFilter === 'all' ? undefined : entityFilter,
+    action: actionFilter === 'all' ? undefined : actionFilter,
+  });
+
   const loadStats = async (reloadChart: boolean) => {
     try {
       const d = await getActorDaily({ actorId, from, to, timezone: 'Asia/Damascus' });
@@ -82,7 +116,7 @@ export default function UserReport({
         products: row?.products ?? 0,
       });
       if (reloadChart) {
-        const ev = await getTimeline({ actorId, from, to, fromRow: 0, limit: 20 });
+        const ev = await getTimeline({ actorId, from, to, filter: currentFilter(), fromRow: 0, limit: 20 });
         setEvents(ev);
         setHasMore(ev.length === 20);
       }
@@ -106,7 +140,7 @@ export default function UserReport({
         actorId,
         from,
         to,
-        filter: entityFilter === 'all' ? undefined : { entityType: entityFilter },
+        filter: currentFilter(),
         fromRow: events.length,
         limit: 20,
       });
@@ -119,14 +153,22 @@ export default function UserReport({
     }
   };
 
-  const setEntityFilterAll = async (f: ActivityEntityType | 'all') => {
-    setEntityFilter(f);
+  /** تغيير النوع أو الإجراء يعيد تحميل أول صفحة من السجل بالمرشحين معاً. */
+  const applyTimelineFilter = async (
+    nextEntity: ActivityEntityType | 'all',
+    nextAction: ActivityAction | 'all',
+  ) => {
+    setEntityFilter(nextEntity);
+    setActionFilter(nextAction);
     try {
       const ev = await getTimeline({
         actorId,
         from,
         to,
-        filter: f === 'all' ? undefined : { entityType: f },
+        filter: {
+          entityType: nextEntity === 'all' ? undefined : nextEntity,
+          action: nextAction === 'all' ? undefined : nextAction,
+        },
         fromRow: 0,
         limit: 20,
       });
@@ -293,16 +335,37 @@ export default function UserReport({
             )}
           </div>
 
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[13px] font-bold text-[var(--text)]">سجل النشاطات</h3>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-              {([['all', 'الكل'], ['store', 'متاجر'], ['branch', 'فروع'], ['product', 'منتجات']] as [ActivityEntityType | 'all', string][]).map(([v, l]) => (
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[13px] font-bold text-[var(--text)]">سجل النشاطات</h3>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                {events.length} حدثاً معروضاً • اضغط على الحدث لتفاصيله
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)] me-1">النوع:</span>
+              {ENTITY_FILTERS.map(([v, l]) => (
                 <button
                   key={v}
-                  onClick={() => setEntityFilterAll(v)}
+                  onClick={() => applyTimelineFilter(v, actionFilter)}
                   className={cn(
                     'px-3 py-1 rounded-full border text-[11px] font-semibold transition-colors whitespace-nowrap',
                     entityFilter === v ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]' : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)]',
+                  )}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)] me-1">الإجراء:</span>
+              {ACTION_FILTERS.map(([v, l]) => (
+                <button
+                  key={v}
+                  onClick={() => applyTimelineFilter(entityFilter, v)}
+                  className={cn(
+                    'px-3 py-1 rounded-full border text-[11px] font-semibold transition-colors whitespace-nowrap',
+                    actionFilter === v ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]' : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)]',
                   )}
                 >
                   {l}
@@ -320,7 +383,12 @@ export default function UserReport({
           ) : (
             <div className="space-y-2">
               {events.map((ev) => (
-                <div key={ev.id} className="flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => setDetailEvent(ev)}
+                  className="w-full text-start flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 hover:border-[var(--primary-light)] transition-colors"
+                >
                   <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center shrink-0">
                     {ev.action === 'created' ? <PlusCircle className="w-4 h-4" /> : ev.action === 'deleted' ? <Trash2 className="w-4 h-4" /> : <PenLine className="w-4 h-4" />}
                   </span>
@@ -328,14 +396,15 @@ export default function UserReport({
                     <p className="text-[13px] font-bold text-[var(--text)]">
                       {actionLabel(ev.action)}{' '}
                       <span className="font-normal text-[var(--text-secondary)]">
-                        {ev.entityType === 'store' ? 'للمتجر' : ev.entityType === 'branch' ? 'للفرع' : 'للمنتج'}
+                        {entityTargetLabel(ev.entityType)}
                       </span>{' '}
-                      «{ev.entityName || ''}»
+                      «{eventName(ev)}»
                     </p>
+                    <EventBriefLine event={ev} />
                     <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{relativeTime(ev.eventAt)}</p>
                   </div>
                   <Chip tone={toneForAction(ev.action)} label={actionLabel(ev.action)} />
-                </div>
+                </button>
               ))}
               {hasMore && (
                 <div className="text-center pt-1">
@@ -359,7 +428,12 @@ export default function UserReport({
             ) : (
               <div className="space-y-2 max-h-[60vh] overflow-y-auto pe-1">
                 {dayEvents.map((ev) => (
-                  <div key={ev.id} className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                  <button
+                    key={ev.id}
+                    type="button"
+                    onClick={() => setDetailEvent(ev)}
+                    className="w-full text-start flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 hover:border-[var(--primary-light)] transition-colors"
+                  >
                     <span className="w-8 h-8 rounded-lg bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center shrink-0">
                       {ev.action === 'created' ? <PlusCircle className="w-4 h-4" /> : ev.action === 'deleted' ? <Trash2 className="w-4 h-4" /> : <PenLine className="w-4 h-4" />}
                     </span>
@@ -367,17 +441,26 @@ export default function UserReport({
                       <p className="text-[12px] font-bold text-[var(--text)]">
                         {actionLabel(ev.action)}{' '}
                         <span className="font-normal text-[var(--text-secondary)]">
-                          {ev.entityType === 'store' ? 'للمتجر' : ev.entityType === 'branch' ? 'للفرع' : 'للمنتج'}
+                          {entityTargetLabel(ev.entityType)}
                         </span>{' '}
-                        «{ev.entityName || ''}»
+                        «{eventName(ev)}»
                       </p>
+                      <EventBriefLine event={ev} />
                       <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{relativeTime(ev.eventAt)}</p>
                     </div>
                     <Chip tone={toneForAction(ev.action)} label={actionLabel(ev.action)} />
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
+          </Modal>
+
+          <Modal
+            open={!!detailEvent}
+            onClose={() => setDetailEvent(null)}
+            title="تفاصيل النشاط"
+          >
+            {detailEvent && <ActivityDetails event={detailEvent} />}
           </Modal>
         </>
       )}
@@ -394,6 +477,53 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
+/** سطر مختصر يوضح ما تغيّر فعلاً في الحدث (من لقطة details). */
+function EventBriefLine({ event }: { event: ActivityEvent }) {
+  const brief = eventBriefDetail(event.details, event.entityType);
+  if (!brief) return null;
+  return <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{brief}</p>;
+}
+
+/** ورقة «تفاصيل النشاط»: النشاط والوقت والاسم وكل حقول details المعروضة. */
+function ActivityDetails({ event }: { event: ActivityEvent }) {
+  const fields = eventDetailFields(event.details);
+  const name = eventName(event);
+
+  return (
+    <div className="space-y-2.5">
+      <DetailRow label="النشاط" value={eventPhrase(event)} />
+      <DetailRow label="الوقت" value={formatDateTime(event.eventAt)} />
+      {name && <DetailRow label="الاسم" value={name} />}
+
+      <div>
+        <p className="text-[11px] font-bold text-[var(--text-secondary)] mb-1.5">البيانات</p>
+        {fields.length === 0 ? (
+          <p className="text-[12px] text-[var(--text-muted)] rounded-xl border border-[var(--border)] bg-[var(--surface-variant)] p-3">
+            لا توجد بيانات مسجّلة لهذا الحدث
+          </p>
+        ) : (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-variant)] p-3 space-y-1.5 max-h-[45vh] overflow-y-auto">
+            {fields.map((field) => (
+              <div key={field.label} className="flex items-start justify-between gap-3">
+                <span className="text-[11px] text-[var(--text-secondary)] shrink-0">{field.label}</span>
+                <span className="text-[12px] text-[var(--text)] text-end break-words">{field.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-[11px] text-[var(--text-secondary)]">{label}</span>
+      <span className="text-[12.5px] font-semibold text-[var(--text)] text-end">{value}</span>
+    </div>
+  );
+}
 function formatDayLabel(day: string): string {
   return day.split('-').reverse().join('/');
 }

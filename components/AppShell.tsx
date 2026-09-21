@@ -20,7 +20,11 @@ import {
   Moon,
   Sun,
   X,
+  Bell,
 } from 'lucide-react';
+import { AlertsBell, AlertsProvider, useAlerts } from '@/components/notifications/AlertsProvider';
+import AlertsPage from '@/components/notifications/AlertsPage';
+import AlertsArchivePage from '@/components/notifications/AlertsArchivePage';
 import HomePage from '@/components/HomePage';
 import StoresList from '@/components/stores/StoresList';
 import StoreForm from '@/components/stores/StoreForm';
@@ -42,7 +46,9 @@ export default function AppShell({ profile }: { profile: Profile }) {
   return (
     <ProfileProvider profile={profile}>
       <RouterProvider initial={{ name: 'home' }}>
-        <ShellInner />
+        <AlertsProvider>
+          <ShellInner />
+        </AlertsProvider>
       </RouterProvider>
     </ProfileProvider>
   );
@@ -139,6 +145,7 @@ function navItems(profile: Profile): NavItem[] {
       { key: 'employees', label: 'الموظفون', icon: <Users className="w-4.5 h-4.5" />, view: { name: 'employees' } },
       { key: 'accounts', label: 'إدارة الحسابات', icon: <KeyRound className="w-4.5 h-4.5" />, view: { name: 'accounts' } },
       { key: 'activities', label: 'النشاطات', icon: <BarChart3 className="w-4.5 h-4.5" />, view: { name: 'activities', type: 'merchants' } },
+      { key: 'alerts', label: 'التنبيهات', icon: <Bell className="w-4.5 h-4.5" />, view: { name: 'alerts' } },
     );
   }
   return items;
@@ -170,6 +177,9 @@ function activeKey(view: View): string | null {
       return 'employees';
     case 'accounts':
       return 'accounts';
+    case 'alerts':
+    case 'alerts-archive':
+      return 'alerts';
     case 'user-report':
     case 'profile':
       return null;
@@ -202,6 +212,7 @@ function SidebarContent({
   const theme = useTheme();
   const items = navItems(profile);
   const active = activeKey(view);
+  const { unread } = useAlerts();
 
   return (
     <div className="flex h-full flex-col">
@@ -231,7 +242,12 @@ function SidebarContent({
             )}
           >
             {item.icon}
-            {item.label}
+            <span className="flex-1 text-start">{item.label}</span>
+            {item.key === 'alerts' && unread > 0 && (
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--error)] text-white text-[10px] font-bold grid place-items-center">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
           </button>
         ))}
       </nav>
@@ -279,6 +295,7 @@ function MobileHeader({ profile, onMenu }: { profile: Profile; onMenu: () => voi
         <img src="/icons/Icon-192.png?v=3" alt="متجر تراك" className="w-7 h-7 rounded-lg shrink-0" />
         <p className="text-[14px] font-bold text-[var(--text)] truncate">متجر تراك</p>
       </div>
+      <AlertsBell />
       <button onClick={() => router.reset({ name: 'profile' })} className="grid place-items-center w-9 h-9 rounded-xl border border-[var(--border)] text-[var(--text-secondary)]">
         <UserIcon className="w-4.5 h-4.5" />
       </button>
@@ -349,6 +366,10 @@ function ViewRenderer({ profile, view }: { profile: Profile; view: View }) {
       return <ActivitiesList />;
     case 'user-report':
       return <UserReport actorId={view.actorId} role={view.role} actorName={view.actorName ?? ''} actorEmail={view.actorEmail ?? ''} />;
+    case 'alerts':
+      return <AlertsPage />;
+    case 'alerts-archive':
+      return <AlertsArchivePage />;
     case 'profile':
       return <ProfilePage />;
     default:

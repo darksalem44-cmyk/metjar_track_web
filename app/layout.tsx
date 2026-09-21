@@ -55,7 +55,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
+      {/* suppressHydrationWarning: إضافات المتصفح (مثل bis_register من إضافات الحماية) تُضاف
+          إلى body قبل ترطيب React وتُسبب تحذير عدم تطابق وهمياً. */}
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} min-h-full antialiased`}
       >
         <ThemeProvider>
