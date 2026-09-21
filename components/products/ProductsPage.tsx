@@ -9,8 +9,8 @@ import { fetchBranchById } from '@/lib/data/branches';
 import type { Product, Store } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
 import { toastError } from '@/lib/toast';
-import { formatPrice } from '@/lib/utils';
-import { Plus, Package, ChevronLeft, Store as StoreIcon } from 'lucide-react';
+import { cn, formatPrice } from '@/lib/utils';
+import { Plus, Package, ChevronLeft, ChevronDown, Check, Store as StoreIcon } from 'lucide-react';
 import { Button, Chip, CenteredSpinner, EmptyState, PageHeader } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
 import { Modal } from '@/components/ui/modals';
@@ -34,6 +34,10 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
   const [title, setTitle] = useState('المنتجات');
   const [storePickerOpen, setStorePickerOpen] = useState(false);
   const [stores, setStores] = useState<Store[]>([]);
+  const [filterStores, setFilterStores] = useState<Store[]>([]);
+  const [storeFilterId, setStoreFilterId] = useState('');
+  const [storeFilterOpen, setStoreFilterOpen] = useState(false);
+  const [storeFilterSearch, setStoreFilterSearch] = useState('');
   const queryRef = useRef('');
 
   const isMerchant = profile.role === 'merchant';
@@ -52,6 +56,20 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
       }
     })();
   }, [scope, isMerchant]);
+
+  // قائمة الشركات (المتاجر) المتاحة للفلترة عند عرض كل المنتجات
+  useEffect(() => {
+    if (scope.type !== 'all') {
+      setFilterStores([]);
+      setStoreFilterId('');
+      setStoreFilterOpen(false);
+      setStoreFilterSearch('');
+      return;
+    }
+    fetchStores({ page: 0, pageSize: 200, createdBy: isMerchant ? profile.id : undefined })
+      .then((res) => setFilterStores(res.items))
+      .catch(() => setFilterStores([]));
+  }, [scope.type, isMerchant, profile.id]);
 
   const load = useCallback(
     async (pg: number, q: string, append: boolean) => {
@@ -75,7 +93,7 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
           pageSize: PAGE_SIZE,
           search: q,
           storeIds: storeFilter,
-          storeId: scope.type === 'store' ? scope.storeId : undefined,
+          storeId: storeFilterId || (scope.type === 'store' ? scope.storeId : undefined),
           branchId: scope.type === 'branch' ? scope.branchId : undefined,
         });
         if (append) setProducts((prev) => [...prev, ...res.items]);
@@ -89,20 +107,18 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
         setLoadingMore(false);
       }
     },
-    [scope.type, scope.storeId, scope.branchId, isMerchant, profile.id],
+    [scope.type, scope.storeId, scope.branchId, isMerchant, profile.id, storeFilterId],
   );
 
   useEffect(() => {
     const t = setTimeout(() => {
       const q = search.trim();
-      if (q !== queryRef.current || page === 0) {
-        queryRef.current = q;
-        load(0, q, false);
-      }
+      queryRef.current = q;
+      load(0, q, false);
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, load]);
+  }, [search, storeFilterId, load]);
 
   const loadMore = () => load(page + 1, queryRef.current, true);
 
@@ -141,6 +157,81 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
       <div className="mb-5">
         <SearchField value={search} onChange={setSearch} placeholder="بحث عن منتج بالاسم..." className="max-w-md" />
       </div>
+
+      {scope.type === 'all' && filterStores.length > 0 && (
+        <div className="relative mb-4 max-w-xs">
+          <button
+            type="button"
+            onClick={() => setStoreFilterOpen((o) => !o)}
+            className="w-full flex items-center justify-between gap-2 ps-3.5 pe-3 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] hover:border-[var(--primary)] transition-colors"
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <StoreIcon className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
+              <span className={cn('truncate', storeFilterId ? 'text-[var(--text)] font-semibold' : 'text-[var(--text-muted)]')}>
+                {storeFilterId ? filterStores.find((s) => s.id === storeFilterId)?.name ?? 'كل الشركات' : 'كل الشركات'}
+              </span>
+            </span>
+            <ChevronDown className={cn('w-4 h-4 text-[var(--text-muted)] transition-transform shrink-0', storeFilterOpen && 'rotate-180')} />
+          </button>
+
+          {storeFilterOpen && (
+            <>
+              <div className="fixed inset-0 z-20" onClick={() => setStoreFilterOpen(false)} />
+              <div className="absolute z-30 mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg overflow-hidden">
+                <div className="p-2 border-b border-[var(--border)]">
+                  <SearchField value={storeFilterSearch} onChange={setStoreFilterSearch} placeholder="بحث عن الشركة..." />
+                </div>
+                <div className="max-h-64 overflow-y-auto p-1.5">
+                  {(() => {
+                    const q = storeFilterSearch.trim().toLowerCase();
+                    const filtered = q ? filterStores.filter((s) => s.name.toLowerCase().includes(q)) : filterStores;
+                    if (filtered.length === 0) {
+                      return <p className="text-[12px] text-[var(--text-muted)] px-3 py-2.5">لا توجد نتائج مطابقة</p>;
+                    }
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStoreFilterId('');
+                            setStoreFilterSearch('');
+                            setStoreFilterOpen(false);
+                          }}
+                          className={cn(
+                            'w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-start hover:bg-[var(--surface-variant)] transition-colors',
+                            storeFilterId === '' ? 'bg-[var(--primary-surface-light)] text-[var(--primary)]' : 'text-[var(--text)]',
+                          )}
+                        >
+                          كل الشركات
+                          {storeFilterId === '' && <Check className="w-4 h-4" />}
+                        </button>
+                        {filtered.map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setStoreFilterId(s.id);
+                              setStoreFilterSearch('');
+                              setStoreFilterOpen(false);
+                            }}
+                            className={cn(
+                              'w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-start hover:bg-[var(--surface-variant)] transition-colors',
+                              storeFilterId === s.id ? 'bg-[var(--primary-surface-light)] text-[var(--primary)]' : 'text-[var(--text)]',
+                            )}
+                          >
+                            <span className="truncate">{s.name}</span>
+                            {storeFilterId === s.id && <Check className="w-4 h-4 shrink-0" />}
+                          </button>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {loading && page === 0 ? (
         <CenteredSpinner label="جاري تحميل المنتجات..." />

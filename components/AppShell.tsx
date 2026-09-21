@@ -206,7 +206,7 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-4 h-16 border-b border-[var(--border)] shrink-0">
-        <span className="grid place-items-center w-9 h-9 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] text-[15px] font-black">م</span>
+        <img src="/icons/Icon-192.png" alt="متجر تراك" className="w-9 h-9 rounded-xl shrink-0" />
         <div className="min-w-0">
           <p className="text-[14px] font-bold text-[var(--text)] leading-tight">متجر تراك</p>
           <p className="text-[10px] text-[var(--text-secondary)]">لوحة التحكم</p>
@@ -276,7 +276,7 @@ function MobileHeader({ profile, onMenu }: { profile: Profile; onMenu: () => voi
         <Menu className="w-4.5 h-4.5" />
       </button>
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <span className="grid place-items-center w-7 h-7 rounded-lg bg-[var(--primary)] text-[var(--on-primary)] text-[11px] font-black shrink-0">م</span>
+        <img src="/icons/Icon-192.png" alt="متجر تراك" className="w-7 h-7 rounded-lg shrink-0" />
         <p className="text-[14px] font-bold text-[var(--text)] truncate">متجر تراك</p>
       </div>
       <button onClick={() => router.reset({ name: 'profile' })} className="grid place-items-center w-9 h-9 rounded-xl border border-[var(--border)] text-[var(--text-secondary)]">

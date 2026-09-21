@@ -80,9 +80,7 @@ export default function ProfilePage() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="text-[16px] font-bold text-[var(--text)] truncate">{profile.fullName}</p>
-            <button onClick={() => setEditName(true)} className="text-[var(--primary)]" title="تعديل الاسم">
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
+            
           </div>
           <p className="text-[12px] text-[var(--text-secondary)] flex items-center gap-1">
             <UserIcon className="w-3.5 h-3.5" /> {roleLabels[profile.role]}

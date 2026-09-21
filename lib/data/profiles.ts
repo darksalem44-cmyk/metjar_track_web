@@ -22,6 +22,44 @@ export async function getProfileByEmail(email: string): Promise<Profile | null> 
   return mapProfile(data);
 }
 
+/**
+ * عند إنشاء حساب جديد يقوم مشغّل الخادم (trigger) عادة بإنشاء صف
+ * profile بعد تأكيد البريد. لضمان قدرة التاجر على تسجيل الدخول فوراً
+ * (كما يفعل تطبيق الموبايل)، ننشئ الصف هنا إن لم يكن موجوداً.
+ */
+export async function ensureProfileRow(
+  userId: string,
+  opts: {
+    fullName?: string;
+    email?: string;
+    role?: UserRole;
+    canEdit?: boolean;
+    canDelete?: boolean;
+  } = {},
+): Promise<void> {
+  try {
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (existing) return;
+    const { error } = await supabase.from('profiles').insert({
+      id: userId,
+      full_name: opts.fullName ?? '',
+      email: opts.email ?? '',
+      role: opts.role ?? 'merchant',
+      can_edit: opts.canEdit ?? true,
+      can_delete: opts.canDelete ?? false,
+      is_active: true,
+    });
+    if (error) throw error;
+  } catch {
+    // في حال منع RLS الإدراج فنكتفي برسالة تفعيل البريد من صفحة التسجيل
+    // ويكون المشغّل هو المسؤول عن إنشاء الصف لاحقاً.
+  }
+}
+
 function mapProfile(row: any): Profile {
   return {
     id: row.id,

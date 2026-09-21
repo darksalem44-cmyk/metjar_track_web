@@ -75,6 +75,13 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
 
   if (loading || !store) return <CenteredSpinner label="جاري تحميل المتاجر..." />;
 
+  // كل صور المتجر (اللافتة + صور الغلاف) معروضة في معاين واحدة
+  const hasSignage = !!store.signageImageUrl;
+  const galleryImages = [
+    ...(hasSignage ? [store.signageImageUrl] : []),
+    ...(store.coverImageUrls ?? []),
+  ].filter((x): x is string => !!x);
+
   const editable = profile.role === 'manager' || canEditStore(profile);
   const deletable = profile.role === 'manager' || canDeleteStore(profile);
 
@@ -141,10 +148,20 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
         }
       />
 
-      {/* صورة المتجر */}
-      <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--surface-variant)] mb-5 h-56">
-        <ResolvedImage src={store.signageImageUrl ?? store.coverImageUrls[0]} alt={store.name} className="w-full h-full" />
-      </div>
+      {/* صورة المتجر — اضغط لعرضها بحجم كامل */}
+      {galleryImages.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => setViewerIndex(0)}
+          className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--surface-variant)] mb-5 h-56 w-full block cursor-zoom-in"
+        >
+          <ResolvedImage src={store.signageImageUrl ?? store.coverImageUrls[0]} alt={store.name} className="w-full h-full" />
+        </button>
+      ) : (
+        <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--surface-variant)] mb-5 h-56">
+          <ResolvedImage src={store.signageImageUrl ?? store.coverImageUrls[0]} alt={store.name} className="w-full h-full" />
+        </div>
+      )}
 
       {/* التصنيف */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -176,7 +193,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
       {store.coverImageUrls.length > 0 && (
         <div className="mb-5">
           <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">صور إضافية</h3>
-          <ImageRow value={store.coverImageUrls} onOpen={setViewerIndex} />
+          <ImageRow value={store.coverImageUrls} onOpen={(i) => setViewerIndex(i + (hasSignage ? 1 : 0))} />
         </div>
       )}
 
@@ -328,7 +345,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
       </div>
 
       {/* معاينة الصور */}
-      <ImageGallery images={store.coverImageUrls} index={viewerIndex} onClose={(i) => setViewerIndex(i)} />
+      <ImageGallery images={galleryImages} index={viewerIndex} onClose={(i) => setViewerIndex(i)} />
 
       {/* حذف */}
       <ConfirmDialog

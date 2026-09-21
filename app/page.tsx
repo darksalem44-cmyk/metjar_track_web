@@ -17,7 +17,7 @@ export default function Home() {
     let unsub: (() => void) | undefined;
     let disposed = false;
 
-    (async () => {
+    const loadSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -42,6 +42,7 @@ export default function Home() {
       setProfile(p);
       setState('app');
 
+      unsub?.();
       const maybeUnsub = subscribeProfile(p.id, async (updated) => {
         setProfile((prev) => (prev ? { ...prev, fullName: updated.full_name ?? prev.fullName, canEdit: !!updated.can_edit, canDelete: !!updated.can_delete, isActive: updated.is_active !== false } : prev));
         if (updated.is_active === false) {
@@ -50,20 +51,25 @@ export default function Home() {
           window.location.href = '/';
         }
       });
-      // قد يُلغى التركيب قبل اكتمال التحميل (StrictMode) — ننظف الاشتراك فوراً
       if (disposed) {
         maybeUnsub();
         return;
       }
       unsub = maybeUnsub;
-    })();
+    };
+
+    loadSession();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        unsub?.();
+        unsub = undefined;
         setProfile(null);
         setState('auth');
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        loadSession();
       }
     });
 

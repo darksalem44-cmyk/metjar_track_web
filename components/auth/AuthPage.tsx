@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { ensureProfileRow } from '@/lib/data/profiles';
 import { Store, Lock, Mail, User, Camera, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { translateError } from '@/lib/constants';
-import { emailValidator, passwordValidator, nameValidator, required } from '@/lib/utils';
+import { emailValidator, passwordValidator, nameValidator } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
 
 type Mode = 'login' | 'signup';
@@ -22,43 +23,69 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
   const [showConfirm, setShowConfirm] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
 
-  const validation = () => {
-    if (!emailValidator(email)) return 'يرجى إدخال بريد إلكتروني صحيح';
-    if (!passwordValidator(password)) return 'كلمة المرور يجب أن تكون 8 محارف على الأقل';
-    if (mode === 'signup') {
-      if (!nameValidator(fullName)) return 'الاسم مطلوب';
-      if (!passwordValidator(confirm)) return 'تأكيد كلمة المرور مطلوب';
-      if (password !== confirm) return 'كلمتا المرور غير متطابقتين';
-      if (!agreed) return 'يرجى الموافقة على شروط الاستخدام';
-    }
-    return null;
+  // مراجع للحقول: بعض المتصفحات (وإضافات إدارة كلمات المرور) تعبأ الحقول
+  // دون تحديث حالة React، فقراءة القيمة الفعلية من DOM تضمن صحتها عند الإرسال.
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const fullNameRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
+
+  const fail = (msg: string) => {
+    setError(msg);
+    toastError(msg);
   };
 
   const handleSubmit = async () => {
-    const v = validation();
-    if (v) {
-      setError(v);
-      toastError(v);
-      return;
+    // القيم الفعلية من الحقول مع الاحتفاظ بالحالة كبديل احتياطي
+    const emailValue = (emailRef.current?.value ?? email).trim();
+    const passwordValue = passwordRef.current?.value ?? password;
+    const fullNameValue = (fullNameRef.current?.value ?? fullName).trim();
+    const confirmValue = confirmRef.current?.value ?? confirm;
+
+    // مزامنة الحالة مع القيم الفعلية (للملء التلقائي وغيره)
+    setEmail(emailValue);
+    setPassword(passwordValue);
+    setFullName(fullNameValue);
+    setConfirm(confirmValue);
+
+    if (!emailValue) return fail('يرجى إدخال بريد إلكتروني صحيح');
+    if (mode === 'signup') {
+      if (!emailValidator(emailValue)) return fail('يرجى إدخال بريد إلكتروني صحيح');
+      if (!passwordValidator(passwordValue)) return fail('كلمة المرور يجب أن تكون 8 محارف على الأقل');
+      if (!nameValidator(fullNameValue)) return fail('الاسم مطلوب');
+      if (!passwordValidator(confirmValue)) return fail('تأكيد كلمة المرور مطلوب');
+      if (passwordValue !== confirmValue) return fail('كلمتا المرور غير متطابقتين');
+      if (!agreed) return fail('يرجى الموافقة على شروط الاستخدام');
+    } else {
+      // تسجيل الدخول: يُكتفى بوجود بريد غير فارغ، صحة الصيغة تقع على الخادم
+      if (!passwordValue) return fail('كلمة المرور مطلوبة');
     }
+
     setLoading(true);
     setError(null);
     try {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
+          email: emailValue,
+          password: passwordValue,
         });
         if (error) throw error;
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
+          email: emailValue,
+          password: passwordValue,
           options: {
-            data: { full_name: fullName.trim() },
+            data: { full_name: fullNameValue },
           },
         });
         if (error) throw error;
+        // كما في تطبيق الموبايل: نضمن وجود صف profile للحساب الجديد
+        if (data.user) {
+          await ensureProfileRow(data.user.id, {
+            fullName: fullNameValue,
+            email: emailValue,
+          });
+        }
         if (data.session === null && data.user) {
           setError(
             'تم إنشاء الحساب بنجاح. يرجى تفعيل البريد الإلكتروني عبر الرابط المرسل إلى بريدك لاستكمال التسجيل.',
@@ -106,9 +133,11 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
               <div className="relative">
                 <User className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
                 <input
+                  ref={fullNameRef}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="اسمك الكامل"
+                  autoComplete="name"
                   className="w-full pe-4 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] focus:border-[var(--primary)]"
                 />
               </div>
@@ -119,14 +148,16 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
             <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">البريد الإلكتروني</label>
             <div className="relative">
               <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                dir="ltr"
-                className="w-full pe-4 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
-              />
+<input
+                  ref={emailRef}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  dir="ltr"
+                  autoComplete={mode === 'login' ? 'username' : 'email'}
+                  className="w-full pe-4 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
+                />
             </div>
           </div>
 
@@ -134,14 +165,16 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
             <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">كلمة المرور</label>
             <div className="relative">
               <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
-              <input
-                type={showPass ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                dir="ltr"
-                className="w-full pe-10 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
-              />
+<input
+                  ref={passwordRef}
+                  type={showPass ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  dir="ltr"
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  className="w-full pe-10 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
+                />
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
@@ -158,11 +191,13 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
               <div className="relative">
                 <Camera className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
                 <input
+                  ref={confirmRef}
                   type={showConfirm ? 'text' : 'password'}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="••••••••"
                   dir="ltr"
+                  autoComplete="new-password"
                   className="w-full pe-10 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
                 />
                 <button
@@ -217,23 +252,14 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
           </button>
         </div>
 
-        <div className="mt-6 text-center text-[12px] text-[var(--text-muted)]">
-          {mode === 'login' ? (
-            <>
-              <span>ليس لديك حساب؟</span>{' '}
-              <button onClick={() => switchMode('signup')} className="text-[var(--primary)] font-semibold hover:underline">
-                أنشئ حساباً
-              </button>
-            </>
-          ) : (
-            <>
-              <span>لديك حساب بالفعل؟</span>{' '}
-              <button onClick={() => switchMode('login')} className="text-[var(--primary)] font-semibold hover:underline">
-                تسجيل الدخول
-              </button>
-            </>
-          )}
-        </div>
+        {mode === 'signup' && (
+          <div className="mt-6 text-center text-[12px] text-[var(--text-muted)]">
+            <span>لديك حساب بالفعل؟</span>{' '}
+            <button onClick={() => switchMode('login')} className="text-[var(--primary)] font-semibold hover:underline">
+              تسجيل الدخول
+            </button>
+          </div>
+        )}
 
         {showForgot && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

@@ -60,6 +60,13 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
 
   if (loading || !branch) return <CenteredSpinner label="جاري تحميل الفرع..." />;
 
+  // كل صور الفرع (اللافتة + صور الغلاف) معروضة في معاين واحدة
+  const hasSignage = !!branch.signageImageUrl;
+  const galleryImages = [
+    ...(hasSignage ? [branch.signageImageUrl] : []),
+    ...(branch.coverImageUrls ?? []),
+  ].filter((x): x is string => !!x);
+
   const editable = profile.role === 'manager' || !!profile.canEdit;
   const deletable = profile.role === 'manager' || !!profile.canDelete;
 
@@ -103,7 +110,17 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
       />
 
       <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--surface-variant)] mb-5 h-52">
-        <ResolvedImage src={branch.signageImageUrl ?? branch.coverImageUrls[0]} alt={branch.name} className="w-full h-full" />
+        {galleryImages.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setViewerIndex(0)}
+            className="block w-full h-full cursor-zoom-in"
+          >
+            <ResolvedImage src={branch.signageImageUrl ?? branch.coverImageUrls[0]} alt={branch.name} className="w-full h-full" />
+          </button>
+        ) : (
+          <ResolvedImage src={branch.signageImageUrl ?? branch.coverImageUrls[0]} alt={branch.name} className="w-full h-full" />
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -125,7 +142,7 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
       {branch.coverImageUrls.length > 0 && (
         <div className="mb-5">
           <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">صور إضافية</h3>
-          <ImageRow value={branch.coverImageUrls} onOpen={setViewerIndex} />
+          <ImageRow value={branch.coverImageUrls} onOpen={(i) => setViewerIndex(i + (hasSignage ? 1 : 0))} />
         </div>
       )}
 
@@ -208,8 +225,8 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
       </div>
 
       <Modal open={viewerIndex !== null} onClose={() => setViewerIndex(null)} title="الصورة">
-        {viewerIndex !== null && branch.coverImageUrls[viewerIndex] && (
-          <ResolvedImage src={branch.coverImageUrls[viewerIndex]} alt="" className="w-full max-h-[65vh] object-contain rounded-xl" />
+        {viewerIndex !== null && galleryImages[viewerIndex] && (
+          <ResolvedImage src={galleryImages[viewerIndex]} alt="" className="w-full max-h-[65vh] object-contain rounded-xl" />
         )}
       </Modal>
 
