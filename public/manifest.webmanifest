@@ -1,0 +1,55 @@
+{
+  "name": "متجر تراك",
+  "short_name": "متجر تراك",
+  "description": "منصة متجر تراك لإدارة المتاجر والفروع والمنتجات مع تتبع النشاطات",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "ar",
+  "background_color": "#f5f3f7",
+  "theme_color": "#984399",
+  "icons": [
+    {
+      "src": "/icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/Icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/Icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "المتاجر",
+      "url": "/stores",
+      "icons": [{ "src": "/icons/Icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "المنتجات",
+      "url": "/products",
+      "icons": [{ "src": "/icons/Icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "النشاطات",
+      "url": "/activities",
+      "icons": [{ "src": "/icons/Icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
