@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
-import { getActorDaily, getTimeline, getActorSummaries, actionLabel } from '@/lib/data/activities';
+import {
+  getActorDaily,
+  getTimeline,
+  getActorSummariesForActors,
+  actionLabel,
+} from '@/lib/data/activities';
 import { periodOptions } from '@/lib/constants';
 import type { ActivityEvent, ActivityEntityType, PeriodKey, UserRole } from '@/lib/types';
 import { getPeriodRange, relativeTime } from '@/lib/utils';
@@ -68,7 +73,8 @@ export default function UserReport({
     try {
       const d = await getActorDaily({ actorId, from, to, timezone: 'Asia/Damascus' });
       setDaily(d);
-      const s = await getActorSummaries({ actorIds: [actorId], actorRole: 'all', from, to });
+      // نمرّر دور صاحب التقرير الحقيقي (الـ RPC يفلتر بـ p_actor_role ولا يفهم 'all')
+      const s = await getActorSummariesForActors([{ id: actorId, role }], { from, to });
       const row = s[actorId];
       setEntities({
         stores: row?.stores ?? 0,

@@ -108,7 +108,8 @@ export interface ActivityEvent {
 
 export interface ActorWithProfile {
   id: string;
-  role: ActivityActorRole;
+  // دور الحساب الفعلي — لا يكون 'all' أبداً (الـ RPC يفلتر بهذا الدور)
+  role: UserRole;
   email?: string;
   fullName: string;
   canEdit: boolean;

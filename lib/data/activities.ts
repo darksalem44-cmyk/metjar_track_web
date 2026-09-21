@@ -4,10 +4,28 @@ import type {
   ActivityEntityType,
   ActorSummary,
   ActivityEvent,
-  ActivityActorRole,
   DailyPoint,
+  UserRole,
 } from '@/lib/types';
 import { translateError } from '@/lib/constants';
+
+/** الدور المخزَّن فعلياً في activity_events.actor_role هو واحد من هذه القيم الثلاث فقط. */
+export function normalizeRole(value: string | null | undefined): UserRole {
+  return value === 'merchant' || value === 'manager' ? value : 'employee';
+}
+
+function zeroSummary(actorId: string): ActorSummary {
+  return {
+    actor_id: actorId,
+    total: 0,
+    created: 0,
+    updated: 0,
+    deleted: 0,
+    stores: 0,
+    branches: 0,
+    products: 0,
+  };
+}
 
 function mapSummary(row: any): ActorSummary {
   // حقول دالة get_activity_actor_summary كما يقرؤها تطبيق الموبايل
@@ -41,9 +59,14 @@ function toIso(date: Date): string {
   return date.toISOString();
 }
 
+/**
+ * استدعاء دالة get_activity_actor_summary لدور واحد محدد.
+ * ملاحظة مهمة: p_actor_role يقبل قيمة دور حقيقية فقط (employee/merchant/manager)
+ * ولا يقبل قيمة تجميعية مثل 'all' — تمرير 'all' يجعل الفلتر لا يطابق أي صف وترجع الدالة فارغة.
+ */
 export async function getActorSummaries(opts: {
   actorIds: string[];
-  actorRole: ActivityActorRole;
+  actorRole: UserRole;
   from: Date;
   to: Date;
 }): Promise<Record<string, ActorSummary>> {
@@ -61,6 +84,100 @@ export async function getActorSummaries(opts: {
     result[s.actor_id] = s;
   }
   return result;
+}
+
+/** سقف أمان لعدد الصفوف في الحساب المحلي الاحتياطي (وضع «الكل» قد يغطي سنوات). */
+const MAX_SCAN_ROWS = 20000;
+const SCAN_PAGE = 1000;
+
+/**
+ * شبكة أمان: تجميع الملخصات محلياً من جدول activity_events.
+ * تُستخدم فقط إذا رجعت الدالة فارغة بينما توجد أحداث فعلاً في الفترة، فتمنع
+ * ظهور أرقام صفرية كاذبة في أي سيناريو (دور غير مدعوم، صفوف قديمة بلا actor_role...).
+ */
+async function summarizeFromEvents(
+  actorIds: string[],
+  opts: { from: Date; to: Date },
+): Promise<Record<string, ActorSummary>> {
+  const wanted = new Set(actorIds);
+  const result: Record<string, ActorSummary> = {};
+  if (wanted.size === 0) return result;
+
+  const query = supabase
+    .from('activity_events')
+    .select('actor_id, event_action, entity_type')
+    .gte('event_at', toIso(opts.from))
+    .lt('event_at', toIso(opts.to));
+
+  let scanned = 0;
+  while (scanned < MAX_SCAN_ROWS) {
+    const { data, error } = await query.range(scanned, scanned + SCAN_PAGE - 1);
+    if (error) throw translateError(error);
+    const rows = (data as any[]) ?? [];
+    for (const row of rows) {
+      const id = row.actor_id;
+      if (!id || !wanted.has(id)) continue;
+      const s = (result[id] ??= zeroSummary(id));
+      s.total += 1;
+      if (row.event_action === 'created') s.created += 1;
+      else if (row.event_action === 'updated') s.updated += 1;
+      else if (row.event_action === 'deleted') s.deleted += 1;
+      if (row.entity_type === 'store') s.stores += 1;
+      else if (row.entity_type === 'branch') s.branches += 1;
+      else if (row.entity_type === 'product') s.products += 1;
+    }
+    scanned += rows.length;
+    if (rows.length < SCAN_PAGE) break;
+  }
+  return result;
+}
+
+/**
+ * ملخصات مجموعة حسابات بأنواع أدوارها (موظفين وتجار ومديرين في استدعاء واحد).
+ * الدالة الأصلية تفلتر بـ p_actor_role، لذلك نجمّع المعرّفات حسب الدور ونستدعيها
+ * مرة لكل دور ثم ندمج النتائج — مطابق لسلوك تطبيق الموبايل في كل تبويب.
+ */
+export async function getActorSummariesForActors(
+  actors: { id: string; role: string | null | undefined }[],
+  opts: { from: Date; to: Date },
+): Promise<Record<string, ActorSummary>> {
+  if (actors.length === 0) return {};
+
+  const byRole = new Map<UserRole, string[]>();
+  for (const a of actors) {
+    const role = normalizeRole(a.role);
+    const list = byRole.get(role) ?? [];
+    list.push(a.id);
+    byRole.set(role, list);
+  }
+
+  const merged: Record<string, ActorSummary> = {};
+  const errors: unknown[] = [];
+  await Promise.all(
+    [...byRole.entries()].map(async ([role, ids]) => {
+      try {
+        Object.assign(
+          merged,
+          await getActorSummaries({ actorIds: ids, actorRole: role, from: opts.from, to: opts.to }),
+        );
+      } catch (e) {
+        errors.push(e);
+      }
+    }),
+  );
+
+  // فشل كل الأدوار = خطأ حقيقي (شبكة/صلاحيات) نُظهره بدل الأصفار الصامتة.
+  if (Object.keys(merged).length === 0 && errors.length === byRole.size) {
+    throw errors[0];
+  }
+  if (Object.keys(merged).length > 0) return merged;
+
+  // الدالة رجعت فارغة: نحاول الحساب المحلي قبل إظهار الأصفار.
+  try {
+    return await summarizeFromEvents(actors.map((a) => a.id), opts);
+  } catch {
+    return merged;
+  }
 }
 
 export async function getActorDaily(opts: {

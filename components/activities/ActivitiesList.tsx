@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import { fetchAllAccounts } from '@/lib/data/accounts';
-import { getActorSummaries } from '@/lib/data/activities';
-import type { ActorWithProfile, PeriodKey, AccountFilter } from '@/lib/types';
+import { getActorSummariesForActors } from '@/lib/data/activities';
+import type { ActorSummary, ActorWithProfile, PeriodKey, AccountFilter } from '@/lib/types';
 import { accountFilterOptions } from '@/lib/constants';
 import { getPeriodRange, cn } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
@@ -12,7 +12,16 @@ import { BarChart3 } from 'lucide-react';
 import { Avatar, CenteredSpinner, Chip, EmptyState } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
 
-type Summary = { total: number; stores: number; branches: number; products: number };
+const ZERO_SUMMARY: ActorSummary = {
+  actor_id: '',
+  total: 0,
+  created: 0,
+  updated: 0,
+  deleted: 0,
+  stores: 0,
+  branches: 0,
+  products: 0,
+};
 
 const PERIODS: { value: PeriodKey | 'all'; label: string }[] = [
   { value: 'today', label: 'اليوم' },
@@ -24,7 +33,7 @@ const PERIODS: { value: PeriodKey | 'all'; label: string }[] = [
 export default function ActivitiesList() {
   const router = useRouter();
   const [actors, setActors] = useState<ActorWithProfile[]>([]);
-  const [summaries, setSummaries] = useState<Record<string, Summary>>({});
+  const [summaries, setSummaries] = useState<Record<string, ActorSummary>>({});
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<PeriodKey | 'all'>('last7');
   const [search, setSearch] = useState('');
@@ -36,15 +45,14 @@ export default function ActivitiesList() {
       const all = await fetchAllAccounts();
       setActors(all);
       if (all.length === 0) return;
-      const ids = all.map((a) => a.id);
       const { from, to } = getPeriodRange(range === 'all' ? 'last7' : range, new Date());
       if (range === 'all') from.setFullYear(2000);
-      const rows = await getActorSummaries({ actorIds: ids, actorRole: 'all', from, to });
-      const map: Record<string, Summary> = {};
-      for (const r of Object.values(rows)) {
-        map[r.actor_id] = { total: r.total, stores: r.stores, branches: r.branches, products: r.products };
-      }
-      setSummaries(map);
+      // نمرّر دور كل حساب كما هو: الدالة تفلتر بـ p_actor_role ولا تفهم قيمة تجميعية
+      const rows = await getActorSummariesForActors(
+        all.map((a) => ({ id: a.id, role: a.role })),
+        { from, to },
+      );
+      setSummaries(rows);
     } catch (e: any) {
       toastError(typeof e === 'string' ? e : 'تعذر تحميل النشاطات');
     } finally {
@@ -72,7 +80,7 @@ export default function ActivitiesList() {
           if (statusFilter === 'withPermissions') return a.canEdit || a.canDelete;
           return true;
         })
-        .map((a) => ({ actor: a, s: summaries[a.id] ?? { total: 0, stores: 0, branches: 0, products: 0 } }))
+        .map((a) => ({ actor: a, s: summaries[a.id] ?? ZERO_SUMMARY }))
         .sort((a, b) => b.s.total - a.s.total),
     [actors, summaries, search, statusFilter],
   );
