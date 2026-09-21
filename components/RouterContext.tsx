@@ -27,6 +27,7 @@ export type View =
   | { name: 'user-report'; actorId: string; role: ActivityActorRole; actorName?: string; actorEmail?: string }
   | { name: 'alerts' }
   | { name: 'alerts-archive' }
+  | { name: 'activity-trends' }
   | { name: 'profile' };
 
 export interface RouterContextValue {
@@ -103,6 +104,8 @@ export function viewToPath(view: View): string {
       return '/alerts';
     case 'alerts-archive':
       return '/alerts/archive';
+    case 'activity-trends':
+      return '/activities/trends';
     case 'profile':
       return '/profile';
     default:
@@ -156,6 +159,7 @@ export function pathToView(pathname: string, search: string): View | null {
   }
 
   if (s[0] === 'activities') {
+    if (s.length === 2 && s[1] === 'trends') return { name: 'activity-trends' };
     if (s.length === 1) {
       return { name: 'activities', type: q.get('type') === 'employees' ? 'employees' : 'merchants' };
     }

@@ -14,6 +14,7 @@ import {
   Users,
   KeyRound,
   BarChart3,
+  TrendingUp,
   User as UserIcon,
   LogOut,
   Menu,
@@ -39,6 +40,7 @@ import ProductDetails from '@/components/products/ProductDetails';
 import AccountListPage from '@/components/accounts/AccountListPage';
 import AdminAccountsPage from '@/components/accounts/AdminAccountsPage';
 import ActivitiesList from '@/components/activities/ActivitiesList';
+import ActivityTrendsPage from '@/components/activities/ActivityTrendsPage';
 import UserReport from '@/components/activities/UserReport';
 import ProfilePage from '@/components/profile/ProfilePage';
 
@@ -145,6 +147,7 @@ function navItems(profile: Profile): NavItem[] {
       { key: 'employees', label: 'الموظفون', icon: <Users className="w-4.5 h-4.5" />, view: { name: 'employees' } },
       { key: 'accounts', label: 'إدارة الحسابات', icon: <KeyRound className="w-4.5 h-4.5" />, view: { name: 'accounts' } },
       { key: 'activities', label: 'النشاطات', icon: <BarChart3 className="w-4.5 h-4.5" />, view: { name: 'activities', type: 'merchants' } },
+      { key: 'activity-trends', label: 'اتجاهات النشاط', icon: <TrendingUp className="w-4.5 h-4.5" />, view: { name: 'activity-trends' } },
       { key: 'alerts', label: 'التنبيهات', icon: <Bell className="w-4.5 h-4.5" />, view: { name: 'alerts' } },
     );
   }
@@ -180,6 +183,8 @@ function activeKey(view: View): string | null {
     case 'alerts':
     case 'alerts-archive':
       return 'alerts';
+    case 'activity-trends':
+      return 'activity-trends';
     case 'user-report':
     case 'profile':
       return null;
@@ -364,6 +369,8 @@ function ViewRenderer({ profile, view }: { profile: Profile; view: View }) {
       return <AdminAccountsPage />;
     case 'activities':
       return <ActivitiesList />;
+    case 'activity-trends':
+      return <ActivityTrendsPage />;
     case 'user-report':
       return <UserReport actorId={view.actorId} role={view.role} actorName={view.actorName ?? ''} actorEmail={view.actorEmail ?? ''} />;
     case 'alerts':
