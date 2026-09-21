@@ -1,6 +1,6 @@
 // عامل خدمة متجر تراك — تخزين مؤقت للقشرة (app shell) حتى يعمل التطبيق بدون إنترنت
 // ملاحظة: عند كل نشر، عُدّل رقم نسخة الـ CACHE ليُحذف الكاش القديم تلقائياً أثناء activate.
-const CACHE = 'metjar-track-v2';
+const CACHE = 'metjar-track-v3';
 const PRECACHE = ['/'];
 
 self.addEventListener('install', (event) => {
@@ -49,6 +49,27 @@ self.addEventListener('fetch', (event) => {
   // كود Next.js (العدّات المبنية): شبكة أولاً حتى يصل كل إصدار جديد فوراً
   // ولا تعلق النسخة القديمة في الكاش؛ نؤول للكاش فقط عند انقطاع الشبكة.
   if (url.pathname.startsWith('/_next/')) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.status === 200 && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match(req)),
+    );
+    return;
+  }
+
+  // أيقونة الموقع، وسجل الوظائف، وأيقونات PWA: شبكة أولاً مع احتياط الكاش
+  // حتى تتبدل الأيقونات فوراً عند كل نشر دون بقاء القديمة في الكاش.
+  if (
+    url.pathname === '/favicon.png' ||
+    url.pathname === '/manifest.webmanifest' ||
+    url.pathname.startsWith('/icons/')
+  ) {
     event.respondWith(
       fetch(req)
         .then((res) => {
