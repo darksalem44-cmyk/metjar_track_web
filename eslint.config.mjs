@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // دالة Supabase Edge (Deno) خارج نطاق فحص الويب
+    "supabase/**",
   ]),
 ]);
 
