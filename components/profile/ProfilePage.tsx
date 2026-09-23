@@ -12,7 +12,7 @@ import { Modal, ConfirmDialog } from '@/components/ui/modals';
 import { TextField } from '@/components/ui/fields';
 import { useTheme } from '@/components/ThemeProvider';
 import { useInstall, isStandalone } from '@/components/pwa/useInstall';
-import { LogOut, Pencil, Shield, User as UserIcon, Download, Smartphone } from 'lucide-react';
+import { LogOut, Pencil, Shield, User as UserIcon, Download, Smartphone, HardDriveDownload } from 'lucide-react';
 
 export default function ProfilePage() {
   const profile = useProfile();
@@ -147,6 +147,10 @@ export default function ProfilePage() {
             <button onClick={() => router.push({ name: 'accounts' })} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
               <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center"><Shield className="w-4 h-4" /></span>
               <span className="text-[13px] font-bold text-[var(--text)]">حسابات الفريق (إعادة تعيين كلمات المرور)</span>
+            </button>
+            <button onClick={() => router.push({ name: 'backup' })} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
+              <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center"><HardDriveDownload className="w-4 h-4" /></span>
+              <span className="text-[13px] font-bold text-[var(--text)]">النسخ الاحتياطي (تصدير البيانات)</span>
             </button>
           </div>
         </>

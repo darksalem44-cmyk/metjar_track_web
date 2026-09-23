@@ -1,6 +1,14 @@
 import type { ActivityAction, ActivityEntityType } from '@/lib/types';
 import { startOfWeek, weekLabelFor } from '@/lib/notifications';
 
+/** مفتاح تاريخ محلي بصيغة YYYY-MM-DD (بدل toISOString الذي ينجرف إلى اليوم السابق خارج UTC). */
+function localDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // ─────────────── سلسلة الاتجاه الأسبوعية ───────────────
 
 /** نقطة أسبوع في لوحة الاتجاهات. */
@@ -45,7 +53,7 @@ export function buildActivityTrendSeries(
     const start = new Date(currentStart.getTime() - i * 7 * 24 * 60 * 60 * 1000);
     const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
     buckets.push({
-      key: start.toISOString().slice(0, 10),
+      key: localDateKey(start),
       label: weekLabelFor(start),
       start: start.toISOString(),
       end: end.toISOString(),

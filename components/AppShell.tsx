@@ -22,6 +22,7 @@ import {
   Sun,
   X,
   Bell,
+  HardDriveDownload,
 } from 'lucide-react';
 import { AlertsBell, AlertsProvider, useAlerts } from '@/components/notifications/AlertsProvider';
 import AlertsPage from '@/components/notifications/AlertsPage';
@@ -43,6 +44,7 @@ import ActivitiesList from '@/components/activities/ActivitiesList';
 import ActivityTrendsPage from '@/components/activities/ActivityTrendsPage';
 import UserReport from '@/components/activities/UserReport';
 import ProfilePage from '@/components/profile/ProfilePage';
+import BackupPage from '@/components/backup/BackupPage';
 
 export default function AppShell({ profile }: { profile: Profile }) {
   return (
@@ -146,6 +148,7 @@ function navItems(profile: Profile): NavItem[] {
       { key: 'merchants', label: 'التجار', icon: <StoreIcon className="w-4.5 h-4.5" />, view: { name: 'merchants' } },
       { key: 'employees', label: 'الموظفون', icon: <Users className="w-4.5 h-4.5" />, view: { name: 'employees' } },
       { key: 'accounts', label: 'إدارة الحسابات', icon: <KeyRound className="w-4.5 h-4.5" />, view: { name: 'accounts' } },
+      { key: 'backup', label: 'النسخ الاحتياطي', icon: <HardDriveDownload className="w-4.5 h-4.5" />, view: { name: 'backup' } },
       { key: 'activities', label: 'النشاطات', icon: <BarChart3 className="w-4.5 h-4.5" />, view: { name: 'activities', type: 'merchants' } },
       { key: 'activity-trends', label: 'اتجاهات النشاط', icon: <TrendingUp className="w-4.5 h-4.5" />, view: { name: 'activity-trends' } },
       { key: 'alerts', label: 'التنبيهات', icon: <Bell className="w-4.5 h-4.5" />, view: { name: 'alerts' } },
@@ -185,6 +188,8 @@ function activeKey(view: View): string | null {
       return 'alerts';
     case 'activity-trends':
       return 'activity-trends';
+    case 'backup':
+      return 'backup';
     case 'user-report':
     case 'profile':
       return null;
@@ -377,6 +382,8 @@ function ViewRenderer({ profile, view }: { profile: Profile; view: View }) {
       return <AlertsPage />;
     case 'alerts-archive':
       return <AlertsArchivePage />;
+    case 'backup':
+      return <BackupPage />;
     case 'profile':
       return <ProfilePage />;
     default:
