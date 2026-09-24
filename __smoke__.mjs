@@ -279,12 +279,18 @@ includes('translate دخول خاطئ', constants.translateError('Invalid login 
 includes('translate مسجل مسبقاً', constants.translateError('User already registered'), 'مسجّل مسبقاً');
 eq('translate مرور كما هو', constants.translateError('رسالة غير معروفة'), 'رسالة غير معروفة');
 
-// ═══════════ 9) runDatabaseBackup بلا جلسة (سلوك حقيقي async) ═══════════
+// ═══════════ 9) نمط المهمة: start/fetchJobStatus بلا جلسة (سلوك حقيقي async) ═══════════
 try {
-  await backup.runDatabaseBackup();
-  check('runDatabaseBackup بلا جلسة يرفض', false, 'resolved unexpectedly');
+  await backup.startBackupJob();
+  check('startBackupJob بلا جلسة يرفض', false, 'resolved unexpectedly');
 } catch (e) {
-  eq('runDatabaseBackup بلا جلسة الرسالة', String(e), 'يجب تسجيل الدخول أولاً');
+  eq('startBackupJob بلا جلسة الرسالة', String(e), 'يجب تسجيل الدخول أولاً');
+}
+try {
+  await backup.fetchJobStatus('test-job');
+  check('fetchJobStatus بلا جلسة يرفض', false, 'resolved unexpectedly');
+} catch (e) {
+  eq('fetchJobStatus بلا جلسة الرسالة', String(e), 'يجب تسجيل الدخول أولاً');
 }
 
 // ═══════════ النتيجة ═══════════

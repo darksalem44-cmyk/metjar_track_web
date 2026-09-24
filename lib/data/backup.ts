@@ -6,20 +6,6 @@ export const BACKUP_FUNCTION = 'full-backup-with-storage';
 /** كاش الاحتياط: تاريخ آخر نسخة يُحفظ لكل مستخدم على هذا المتصفح (لا تُحفظ الجداول). */
 const lastBackupKey = (userId: string) => `mt_backup_last_${userId}`;
 
-export interface BackupFileInfo {
-  table: string;
-  filename: string;
-  rowCount: number;
-}
-
-export interface BackupResult {
-  mode: string;
-  tablesExported: number;
-  files: BackupFileInfo[];
-  /** وقت اكتمال العملية في هذا الجهاز. */
-  completedAt: Date;
-}
-
 interface BackupResponse {
   success?: unknown;
   mode?: unknown;
@@ -72,30 +58,6 @@ export function readableBackupError(raw: unknown): string {
   return truncate(compact);
 }
 
-/** عدد الجداول المصدَّرة: من الحقل إن وُجد، وإلا من طول قائمة الملفات. */
-function backupTableCount(body: BackupResponse): number {
-  const raw = body.tables_exported;
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-  if (typeof raw === 'string') {
-    const parsed = Number.parseInt(raw, 10);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  if (Array.isArray(body.files)) return body.files.length;
-  return 0;
-}
-
-function mapFiles(body: BackupResponse): BackupFileInfo[] {
-  if (!Array.isArray(body.files)) return [];
-  return body.files
-    .filter((f): f is Record<string, unknown> => !!f && typeof f === 'object')
-    .map((f) => ({
-      table: typeof f.table === 'string' ? f.table : '',
-      filename: typeof f.filename === 'string' ? f.filename : '',
-      rowCount: typeof f.row_count === 'number' ? f.row_count : 0,
-    }))
-    .filter((f) => f.table || f.filename);
-}
-
 /** حالة HTTP للخطأ: 0 يعني فشل نقل (لم يصل الطلب إلى الدالة). */
 function functionStatus(error: unknown): number {
   const context = (error as { context?: { status?: unknown } } | null)?.context;
@@ -145,39 +107,6 @@ async function invokeErrorMessage(error: unknown): Promise<string> {
   return status >= 500
     ? 'حدث خطأ في الخادم. حاول مرة أخرى لاحقًا'
     : 'تعذّر إنشاء النسخة الاحتياطية';
-}
-
-/**
- * يشغّل نسخة احتياطية يدوية بجلسة المستخدم الحالي.
- *
- * لا يُرسل `user_id` ولا `role`: الدالة تقرأ الهوية من JWT وتتحقق من كون
- * المستخدم مديرًا فعّالًا في `public.profiles` بنفسها.
- */
-export async function runDatabaseBackup(): Promise<BackupResult> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.access_token) throw 'يجب تسجيل الدخول أولاً';
-
-  const { data, error } = await supabase.functions.invoke(BACKUP_FUNCTION, {
-    body: { source: 'web' },
-  });
-
-  if (error) throw await invokeErrorMessage(error);
-
-  const body = (data ?? {}) as BackupResponse;
-
-  // 200 مع success غير صحيح = فشل أبلغت عنه الدالة في جسم الاستجابة.
-  if (body.success !== true) {
-    throw readableBackupError(body.error ?? body.message ?? '');
-  }
-
-  return {
-    mode: typeof body.mode === 'string' ? body.mode : 'user',
-    tablesExported: backupTableCount(body),
-    files: mapFiles(body),
-    completedAt: new Date(),
-  };
 }
 
 /** جدول الإعدادات المركزي على الخادم ومفتاحه الخاص بوقت آخر نسخة ناجحة. */
@@ -233,4 +162,137 @@ export function writeLastBackupAt(userId: string, at: Date): void {
   } catch {
     // التخزين المحلي غير متاح — لا يؤثر على نجاح النسخة نفسها
   }
+}
+
+// ─────────────── نمط المهمة: بدء فوري + استطلاع حالة ───────────────
+
+/** مراحل مهمة النسخ كما يبلغ عنها الخادم. */
+export type BackupJobPhase = 'pending' | 'running' | 'completed' | 'failed';
+
+/** حالة مهمة نسخ احتياطي كما تعيدها كل دورة استطلاع. */
+export interface BackupJob {
+  id: string;
+  phase: BackupJobPhase;
+  /** عدد العناصر (الجداول) التي عالجها الخادم حتى الآن. */
+  processedItems: number;
+  /** إجمالي العناصر المطلوب معالجتها (0 إن لم يبلّغ عنه الخادم بعد). */
+  totalItems: number;
+  /** عدد العناصر التي تعذّر رفعها (لا يظهر إلا عند اكتمال المهمة ببعض الأخطاء). */
+  failedItems: number;
+  /** نص الخطأ من الخادم عند فشل المهمة. */
+  error?: string;
+}
+
+interface StartJobResponse {
+  job_id?: unknown;
+  id?: unknown;
+  job?: { id?: unknown };
+  error?: unknown;
+  message?: unknown;
+}
+
+interface JobStatusResponse {
+  job?: {
+    status?: unknown;
+    processed_items?: unknown;
+    total_items?: unknown;
+    failed_items?: unknown;
+    error?: unknown;
+  };
+  error?: unknown;
+  message?: unknown;
+}
+
+/** يستخرج معرّف المهمة من أشكال الاستجابة المدعومة: job_id، أو id، أو job.id. */
+function jobIdFromStartResponse(body: StartJobResponse): string | null {
+  const direct = body.job_id ?? body.id ?? body.job?.id;
+  return typeof direct === 'string' && direct.trim() ? direct.trim() : null;
+}
+
+/** يقرأ عددًا صحيحًا من رقم أو نص، وصفر عند غيابه. */
+function intOr(raw: unknown): number {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.trunc(raw);
+  if (typeof raw === 'string') {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+/**
+ * يحوّل نص الحالة إلى مرحلة معروفة.
+ * `completed_with_errors` هي اكتمال ببعض الأخطاء (تُعرض كنسخة ناجحة مع تنبيه بعدد
+ * العناصر الفاشلة)، و`in_progress`/`processing` تعني أن المهمة تعمل بالفعل.
+ * أي قيمة جديدة غير متوقعة تُعد قيد التشغيل حتى لا تعلق الواجهة.
+ */
+function jobPhase(raw: unknown): BackupJobPhase {
+  switch (raw) {
+    case 'pending':
+    case 'queued':
+    case 'job_pending':
+      return 'pending';
+    case 'completed':
+    case 'success':
+    case 'done':
+    case 'completed_with_errors':
+      return 'completed';
+    case 'failed':
+    case 'error':
+    case 'job_failed':
+      return 'failed';
+    default:
+      return 'running';
+  }
+}
+
+/**
+ * يبدأ مهمة النسخ الاحتياطي على الخادم ويعيد معرّفها فورًا دون انتظار اكتمالها.
+ *
+ * لا يُرسل `user_id` ولا `role`: الدالة تقرأ الهوية من JWT وتتحقق من كون
+ * المستخدم مديرًا فعّالًا في `public.profiles` بنفسها.
+ * يرمي رسالة عربية عند الفشل، بما فيها غياب الجلسة أو غياب job_id في الرد.
+ */
+export async function startBackupJob(): Promise<string> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw 'يجب تسجيل الدخول أولاً';
+
+  const { data, error } = await supabase.functions.invoke(BACKUP_FUNCTION, {
+    body: { action: 'start', source: 'web' },
+  });
+
+  if (error) throw await invokeErrorMessage(error);
+
+  const body = (data ?? {}) as StartJobResponse;
+  const jobId = jobIdFromStartResponse(body);
+  if (!jobId) {
+    throw readableBackupError(body.error ?? body.message ?? 'لم يُعد الخادم معرّف المهمة');
+  }
+  return jobId;
+}
+
+/** يقرأ حالة مهمة جارية من الخادم (تُستدعى في كل دورة استطلاع). */
+export async function fetchJobStatus(jobId: string): Promise<BackupJob> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw 'يجب تسجيل الدخول أولاً';
+
+  const { data, error } = await supabase.functions.invoke(BACKUP_FUNCTION, {
+    body: { action: 'status', job_id: jobId },
+  });
+
+  if (error) throw await invokeErrorMessage(error);
+
+  const body = (data ?? {}) as JobStatusResponse;
+  const job = body.job && typeof body.job === 'object' ? body.job : {};
+  return {
+    id: jobId,
+    phase: jobPhase(job.status),
+    processedItems: intOr(job.processed_items),
+    totalItems: intOr(job.total_items),
+    failedItems: intOr(job.failed_items),
+    error: typeof job.error === 'string' && job.error.trim() ? job.error : undefined,
+  };
 }
