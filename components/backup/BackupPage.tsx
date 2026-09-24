@@ -31,7 +31,7 @@ const POLL_INTERVAL_MS = 5_000;
 const MAX_CONSECUTIVE_POLL_ERRORS = 3;
 
 /**
- * إنشاء نسخة احتياطية يدوية بنمط المهمة: يبدأ الضغط مهمة على الخادم فورًا،
+ * إنشاء نسخة احتياطية يدوية بنمط المهمة: يبدأ الضغط مهمة على الخادم فوراً،
  * ثم تُستطلع حالتها كل 5 ثوانٍ حتى اكتمالها أو فشلها — مع بطاقة تقدم مباشرة
  * (processed_items / total_items من الخادم). لا يعرض التطبيق محتوى النسخة،
  * بل تاريخ آخر نسخة ناجحة فقط — يُقرأ من الخادم (system_metadata) فتظهر
@@ -42,7 +42,7 @@ export default function BackupPage() {
   const [running, setRunning] = useState(false);
   /** المهمة الجارية: تُحدَّث في كل دورة استطلاع لتحريك شريط التقدم. */
   const [job, setJob] = useState<BackupJob | null>(null);
-  // ذاكرة الجهاز تُقرأ فورًا كقيمة ابتدائية (آمنة على الخادم: null بلا window)،
+  // ذاكرة الجهاز تُقرأ فوراً كقيمة ابتدائية (آمنة على الخادم: null بلا window)،
   // ثم تُفضَّل القيمة المركزية الأحدث من system_metadata.
   const [lastBackupAt, setLastBackupAt] = useState<Date | null>(() => readLocalLastBackupAt(profile.id));
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export default function BackupPage() {
   const runningRef = useRef(false);
   const profileRef = useRef(profile);
 
-  /** يغيّر حالة التشغيل ونسختها المرجعية معًا. */
+  /** يغيّر حالة التشغيل ونسختها المرجعية معاً. */
   const setRunningState = useCallback((value: boolean) => {
     runningRef.current = value;
     setRunning(value);
@@ -100,7 +100,7 @@ export default function BackupPage() {
           setRunningState(false);
           const message =
             status.failedItems > 0
-              ? `تم إنشاء النسخة الاحتياطية ورفعها إلى Google Drive — مع ${status.failedItems} عنصرًا تعذّر رفعه`
+              ? `تم إنشاء النسخة الاحتياطية ورفعها إلى Google Drive — مع ${status.failedItems} عنصراً تعذّر رفعه`
               : 'تم إنشاء النسخة الاحتياطية ورفعها إلى Google Drive';
           toastSuccess(message);
         } else if (status.phase === 'failed') {
@@ -137,7 +137,7 @@ export default function BackupPage() {
 
       try {
         const newJobId = await startBackupJob();
-        // المهمة بدأت: ننتقل لعرض التقدم فورًا قبل أول استجابة حالة.
+        // المهمة بدأت: ننتقل لعرض التقدم فوراً قبل أول استجابة حالة.
         setJob({
           id: newJobId,
           phase: 'running',
@@ -238,7 +238,7 @@ export default function BackupPage() {
               <p className="text-[13px] font-bold text-[var(--text)]">جارٍ إنشاء النسخة الاحتياطية…</p>
               <p className="text-[12px] text-[var(--text-secondary)] mt-1">
                 {job.totalItems > 0
-                  ? `تمت معالجة ${job.processedItems} من ${job.totalItems} عنصرًا`
+                  ? `تمت معالجة ${job.processedItems} من ${job.totalItems} عنصراً`
                   : 'بانتظار أول تقرير تقدّم من الخادم…'}
               </p>
               {job.totalItems > 0 && (
@@ -274,7 +274,7 @@ export default function BackupPage() {
         <div className="flex items-start gap-2.5">
           <Clock className="w-4 h-4 shrink-0 text-[var(--text-muted)] mt-0.5" />
           <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">
-            النسخ الاحتياطي الأسبوعي يعمل تلقائيًا على الخادم كل يوم أحد — هذا الزر للنسخ الفوري
+            النسخ الاحتياطي الأسبوعي يعمل تلقائياً على الخادم كل يوم أحد — هذا الزر للنسخ الفوري
             عند الحاجة فقط.
           </p>
         </div>

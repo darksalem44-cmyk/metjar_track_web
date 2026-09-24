@@ -24,7 +24,7 @@ function truncate(value: string, max = 180): string {
 /**
  * يحوّل نص فشل الدالة إلى رسالة عربية واحدة مفهومة.
  *
- * فشل الرفع يصل كنص إنجليزي متعدد الأسطر يحمل JSON كاملًا من Google Drive،
+ * فشل الرفع يصل كنص إنجليزي متعدد الأسطر يحمل JSON كاملاً من Google Drive،
  * وهذا لا يصلح للعرض — لذلك تُلتقط الحالات المعروفة وتُترجم، ويُقتطع غيرها.
  */
 export function readableBackupError(raw: unknown): string {
@@ -87,13 +87,13 @@ async function functionBody(error: unknown): Promise<BackupResponse | null> {
 async function invokeErrorMessage(error: unknown): Promise<string> {
   const status = functionStatus(error);
 
-  // فشل النقل (لا توجد استجابة أصلًا).
+  // فشل النقل (لا توجد استجابة أصلاً).
   if (status === 0) return 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى';
 
-  // حالات المصادقة/الصلاحية تُعرض بنص التطبيق لأن الرد عليها يأتي إنجليزيًا.
+  // حالات المصادقة/الصلاحية تُعرض بنص التطبيق لأن الرد عليها يأتي إنجليزياً.
   if (status === 401) return 'انتهت صلاحية الجلسة. سجّل الدخول مرة أخرى ثم أعد المحاولة';
   if (status === 403) return 'ليس لديك صلاحية إنشاء نسخة احتياطية. هذه العملية متاحة للمديرين فقط';
-  if (status === 404) return 'خدمة النسخ الاحتياطي غير متاحة حاليًا';
+  if (status === 404) return 'خدمة النسخ الاحتياطي غير متاحة حالياً';
 
   // أي حالة أخرى: نص الدالة أوضح من رسالة عامة (مثل فشل الرفع إلى Drive).
   const body = await functionBody(error);
@@ -105,7 +105,7 @@ async function invokeErrorMessage(error: unknown): Promise<string> {
   if (raw.trim()) return readableBackupError(raw);
 
   return status >= 500
-    ? 'حدث خطأ في الخادم. حاول مرة أخرى لاحقًا'
+    ? 'حدث خطأ في الخادم. حاول مرة أخرى لاحقاً'
     : 'تعذّر إنشاء النسخة الاحتياطية';
 }
 
@@ -209,7 +209,7 @@ function jobIdFromStartResponse(body: StartJobResponse): string | null {
   return typeof direct === 'string' && direct.trim() ? direct.trim() : null;
 }
 
-/** يقرأ عددًا صحيحًا من رقم أو نص، وصفر عند غيابه. */
+/** يقرأ عدداً صحيحاً من رقم أو نص، وصفر عند غيابه. */
 function intOr(raw: unknown): number {
   if (typeof raw === 'number' && Number.isFinite(raw)) return Math.trunc(raw);
   if (typeof raw === 'string') {
@@ -246,10 +246,10 @@ function jobPhase(raw: unknown): BackupJobPhase {
 }
 
 /**
- * يبدأ مهمة النسخ الاحتياطي على الخادم ويعيد معرّفها فورًا دون انتظار اكتمالها.
+ * يبدأ مهمة النسخ الاحتياطي على الخادم ويعيد معرّفها فوراً دون انتظار اكتمالها.
  *
  * لا يُرسل `user_id` ولا `role`: الدالة تقرأ الهوية من JWT وتتحقق من كون
- * المستخدم مديرًا فعّالًا في `public.profiles` بنفسها.
+ * المستخدم مديراً فعّالاً في `public.profiles` بنفسها.
  * يرمي رسالة عربية عند الفشل، بما فيها غياب الجلسة أو غياب job_id في الرد.
  */
 export async function startBackupJob(): Promise<string> {

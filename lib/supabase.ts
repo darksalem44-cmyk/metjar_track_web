@@ -64,7 +64,7 @@ export async function resolveImageUrls(paths: string[]): Promise<string[]> {
   return Promise.all(cleaned.map((p) => resolveImageUrl(p)));
 }
 
-/** يبني مسارًا فريدًا لصورة داخل مجلد محدد. */
+/** يبني مساراً فريداً لصورة داخل مجلد محدد. */
 export function buildImagePath(folder: string, ext: string): string {
   const random = Math.random().toString(36).slice(2, 12);
   const sanitizedExt = ext.startsWith('.') ? ext : `.${ext}`;

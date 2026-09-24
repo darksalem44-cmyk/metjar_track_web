@@ -312,7 +312,7 @@ export default function AlertsArchivePage() {
                         ))}
                         {grouping && week.alerts.length !== rows.length && (
                           <p className="text-[10.5px] text-[var(--text-muted)] text-center pt-1">
-                            {week.alerts.length} حدثاً مدموجاً في {rows.length} تنبيهًا
+                            {week.alerts.length} حدثاً مدموجاً في {rows.length} تنبيهاً
                           </p>
                         )}
                       </>

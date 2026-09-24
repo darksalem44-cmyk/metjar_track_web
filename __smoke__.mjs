@@ -80,7 +80,7 @@ eq('password قصيرة', utils.passwordValidator('1234567'), 'كلمة المر
 eq('password صحيحة', utils.passwordValidator('12345678'), null);
 eq('phone غير رقمي', utils.phoneValidator('0999abc'), 'رقم الهاتف غير صحيح');
 eq('phone صحيح', utils.phoneValidator('0999123456'), null);
-eq('اسم قصير', utils.nameValidator(' م '), 'الاسم قصير جدًا');
+eq('اسم قصير', utils.nameValidator(' م '), 'الاسم قصير جداً');
 eq('required فارغ', utils.required('   '), 'هذا الحقل مطلوب');
 eq('isFormValid سليم', utils.isFormValid({ a: null, b: undefined }), true);
 eq('isFormValid فاسد', utils.isFormValid({ a: 'خطأ', b: null }), false);

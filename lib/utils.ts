@@ -83,14 +83,14 @@ export function required(value?: string | null, message = 'هذا الحقل م�
 export function nameValidator(value?: string | null, fieldName = 'الاسم'): string | null {
   const name = value?.trim() ?? '';
   if (!name) return `${fieldName} مطلوب`;
-  if (name.length < 2) return `${fieldName} قصير جدًا`;
+  if (name.length < 2) return `${fieldName} قصير جداً`;
   return null;
 }
 
 export function addressValidator(value?: string | null): string | null {
   const address = value?.trim() ?? '';
   if (!address) return 'العنوان مطلوب';
-  if (address.length < 3) return 'العنوان قصير جدًا';
+  if (address.length < 3) return 'العنوان قصير جداً';
   return null;
 }
 
