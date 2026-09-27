@@ -2,6 +2,7 @@
 import type { Product, CurrencyCode } from '@/lib/types';
 import { translateError } from '@/lib/constants';
 import { resolvePage, type PageParams, type PageResult } from './base';
+import { cacheBump } from '@/lib/cache';
 
 export function mapProduct(row: any): Product {
   return {
@@ -119,6 +120,7 @@ export async function createProduct(input: ProductInput, createdBy: string): Pro
   };
   const { data, error } = await supabase.from('products').insert(row).select().single();
   if (error) throw translateError(error);
+  cacheBump('products');
   return mapProduct(data);
 }
 
@@ -137,10 +139,12 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
   };
   const { data, error } = await supabase.from('products').update(row).eq('id', id).select().single();
   if (error) throw translateError(error);
+  cacheBump('products');
   return mapProduct(data);
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
   const { error } = await supabase.from('products').delete().eq('id', productId);
   if (error) throw translateError(error);
+  cacheBump('products');
 }

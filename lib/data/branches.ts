@@ -1,6 +1,7 @@
 ﻿import { supabase } from '@/lib/supabase';
 import type { Branch } from '@/lib/types';
 import { translateError } from '@/lib/constants';
+import { cacheBump } from '@/lib/cache';
 
 export function mapBranch(row: any): Branch {
   return {
@@ -98,6 +99,7 @@ export async function createBranch(input: BranchInput, createdBy: string): Promi
   };
   const { data, error } = await supabase.from('branches').insert(row).select().single();
   if (error) throw translateError(error);
+  cacheBump('stores');
   return mapBranch(data);
 }
 
@@ -127,6 +129,7 @@ export async function updateBranch(id: string, input: BranchInput): Promise<Bran
   };
   const { data, error } = await supabase.from('branches').update(row).eq('id', id).select().single();
   if (error) throw translateError(error);
+  cacheBump('stores');
   return mapBranch(data);
 }
 
@@ -137,6 +140,7 @@ export async function deleteBranch(branchId: string, confirmationName: string): 
     p_confirmation_name: confirmationName,
   });
   if (error) throw translateError(error);
+  cacheBump('stores');
 }
 
 export async function assignBranchCode(branchId: string, code: string): Promise<void> {

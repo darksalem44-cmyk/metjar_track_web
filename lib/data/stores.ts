@@ -2,6 +2,7 @@
 import type { Store, Profile } from '@/lib/types';
 import { translateError } from '@/lib/constants';
 import { resolvePage, type PageParams, type PageResult } from './base';
+import { cacheBump } from '@/lib/cache';
 
 export interface StoreListParams extends PageParams {
   search?: string;
@@ -114,6 +115,7 @@ export async function createStore(input: StoreInput, createdBy: string): Promise
   };
   const { data, error } = await supabase.from('stores').insert(row).select().single();
   if (error) throw translateError(error);
+  cacheBump('stores');
   return mapStore(data);
 }
 
@@ -142,6 +144,7 @@ export async function updateStore(id: string, input: StoreInput): Promise<Store>
   };
   const { data, error } = await supabase.from('stores').update(row).eq('id', id).select().single();
   if (error) throw translateError(error);
+  cacheBump('stores');
   return mapStore(data);
 }
 
@@ -151,6 +154,7 @@ export async function deleteStore(storeId: string, confirmationName: string): Pr
     p_confirmation_name: confirmationName,
   });
   if (error) throw translateError(error);
+  cacheBump('stores');
 }
 
 export async function getCreatorNames(ids: string[]): Promise<Record<string, string>> {

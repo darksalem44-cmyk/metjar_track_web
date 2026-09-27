@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { ActorWithProfile, Profile, UserRole } from '@/lib/types';
 import { translateError, AppConstants } from '@/lib/constants';
 import { resolvePage, type PageParams, type PageResult } from './base';
+import { cacheBump } from '@/lib/cache';
 
 export function mapAccount(row: any): ActorWithProfile {
   return {
@@ -126,6 +127,7 @@ export async function updateAccountActive(id: string, isActive: boolean): Promis
     .update({ is_active: isActive, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw translateError(error);
+  cacheBump('accounts');
 }
 
 export async function updateAccountPermissions(
@@ -138,6 +140,45 @@ export async function updateAccountPermissions(
     .update({ can_edit: canEdit, can_delete: canDelete, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw translateError(error);
+  cacheBump('accounts');
+}
+
+export interface AccountDetailsInput {
+  fullName: string;
+  isActive: boolean;
+}
+
+/** يحدّث بيانات المستخدم من المدير: الاسم وحالة التفعيل (البريد لا يُعدَّل بعد الإنشاء). */
+export async function updateAccountDetails(id: string, input: AccountDetailsInput): Promise<void> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      full_name: input.fullName,
+      is_active: input.isActive,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select('id');
+  if (error) throw translateError(error);
+  // RLS قد يمنع التحديث صامتاً (صفر صفوف) — كلمة نجاح زائفة تضلل المدير
+  if (!data || data.length === 0) {
+    throw 'تعذر تحديث بيانات المستخدم — تأكد من تسجيل الدخول بصلاحيات مدير';
+  }
+  cacheBump('accounts');
+}
+
+/**
+ * يرقّي موظفاً فقط إلى مدير (الترقية من موظف إلى مدير مباشرة — التاجر يبقى تاجراً).
+ * تُنفّذ عبر RPC في قاعدة البيانات (promote_employee_to_manager) حيث يُتحقق من الدور
+ * ومن هوية المدير المنفّذ بأمان، فلا يمرر العميل الدور بنفسه أبداً.
+ */
+export async function promoteEmployeeToManager(employeeId: string): Promise<void> {
+  const { data, error } = await supabase.rpc('promote_employee_to_manager', {
+    p_employee_id: employeeId,
+  });
+  if (error) throw translateError(error);
+  if (data === false) throw 'تعذرت عملية الترقية — تأكد أن الحساب موظف نشط';
+  cacheBump('accounts');
 }
 
 export async function adminResetPassword(accountId: string, newPassword: string): Promise<void> {

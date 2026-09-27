@@ -121,6 +121,16 @@ export function isFormValid(errors: Record<string, string | null>): boolean {
   return Object.values(errors).every((e) => e === null || e === undefined);
 }
 
+/** مدقق بيانات المستخدم في إدارة الحسابات: الاسم والبريد (البريد للعرض فقط لا يُعدَّل). */
+export function userValidator(fullName?: string | null, email?: string | null): string | null {
+  const nameError = nameValidator(fullName);
+  if (nameError) return nameError;
+  if (email !== undefined && email !== null && String(email).trim() !== '') {
+    return emailValidator(email);
+  }
+  return null;
+}
+
 // ─────────────── Misc helpers ───────────────
 
 export function generatePassword(length = 12): string {

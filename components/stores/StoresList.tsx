@@ -6,6 +6,7 @@ import { useProfile } from '@/components/ProfileContext';
 import { fetchStores, canEditStore } from '@/lib/data/stores';
 import type { Store } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
+import { cacheKey, cachedLoad } from '@/lib/cache';
 import { toastError } from '@/lib/toast';
 import { Plus, Store as StoreIcon, MapPin, Phone, ChevronLeft } from 'lucide-react';
 import { Button, CenteredSpinner, EmptyState, PaginationFooter } from '@/components/ui/controls';
@@ -27,15 +28,24 @@ export default function StoresList() {
   const load = useCallback(
     async (query: string, pg: number) => {
       setLoading(true);
+      const pageKey = cacheKey('stores', `page${pg}:q:${query}:u:${isMerchant ? profile.id : 'all'}`);
       try {
-        const res = await fetchStores({
-          page: pg,
-          pageSize: PAGE_SIZE,
-          search: query,
-          createdBy: isMerchant ? profile.id : undefined,
-        });
-        setStores(res.items);
-        setHasMore(res.hasMore);
+        await cachedLoad(
+          pageKey,
+          () =>
+            fetchStores({
+              page: pg,
+              pageSize: PAGE_SIZE,
+              search: query,
+              createdBy: isMerchant ? profile.id : undefined,
+            }),
+          (res) => {
+            setStores(res.items);
+            setHasMore(res.hasMore);
+            // الكاش يعرض فوراً بلا سبينر، والشبكة تحدّث القائمة بهدوء عند وصولها
+            setLoading(false);
+          },
+        );
       } catch (e: any) {
         toastError(typeof e === 'string' ? e : 'تعذر تحميل المتاجر');
         if (typeof e === 'string' && e.includes('المدير قام بتعطيل حسابك')) return;
@@ -47,6 +57,11 @@ export default function StoresList() {
   );
 
   useEffect(() => {
+    // أول فتح: فوري ليعرض الكاش بلا ومضة؛ البحث/الصفحات: مهلة debounce
+    if (fetchedQuery.current === '' && page === 0 && search.trim() === '') {
+      load('', 0);
+      return;
+    }
     const t = setTimeout(() => {
       const q = search.trim();
       if (q !== fetchedQuery.current || page === 0) {

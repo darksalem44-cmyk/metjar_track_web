@@ -8,6 +8,7 @@ import { fetchStores, fetchStoreById } from '@/lib/data/stores';
 import { fetchBranchById } from '@/lib/data/branches';
 import type { Product, Store } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
+import { cacheKey, cachedLoad } from '@/lib/cache';
 import { toastError } from '@/lib/toast';
 import { cn, formatPrice } from '@/lib/utils';
 import { Plus, Package, ChevronLeft, ChevronDown, Check, Store as StoreIcon } from 'lucide-react';
@@ -75,31 +76,41 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
     async (pg: number, q: string, append: boolean) => {
       if (append) setLoadingMore(true);
       else setLoading(true);
+      const pageKey = cacheKey(
+        'products',
+        `page${pg}:q:${q}:scope:${scope.type}:${scope.storeId ?? ''}:${scope.branchId ?? ''}:sf:${storeFilterId}:u:${isMerchant ? profile.id : 'all'}`,
+      );
       try {
-        let storeFilter: string[] | undefined;
-        if (scope.type === 'all' && isMerchant) {
-          const res = await fetchStores({ page: 0, pageSize: 200, createdBy: profile.id });
-          storeFilter = res.items.map((s) => s.id);
-          if (storeFilter.length === 0) {
-            setProducts([]);
-            setHasMore(false);
+        await cachedLoad(
+          pageKey,
+          async () => {
+            let storeFilter: string[] | undefined;
+            if (scope.type === 'all' && isMerchant) {
+              const res = await fetchStores({ page: 0, pageSize: 200, createdBy: profile.id });
+              storeFilter = res.items.map((s) => s.id);
+              if (storeFilter.length === 0) {
+                return { items: [], hasMore: false } as { items: Product[]; hasMore: boolean };
+              }
+            }
+            return fetchAllProducts({
+              page: pg,
+              pageSize: PAGE_SIZE,
+              search: q,
+              storeIds: storeFilter,
+              storeId: storeFilterId || (scope.type === 'store' ? scope.storeId : undefined),
+              branchId: scope.type === 'branch' ? scope.branchId : undefined,
+            });
+          },
+          (res, source) => {
+            if (append && source === 'cache') return; // الكاش لا يُلحق بصفحة محمّلة
+            if (append) setProducts((prev) => [...prev, ...res.items]);
+            else setProducts(res.items);
+            setHasMore(res.hasMore);
             setPage(pg);
+            // النسخة المخزنة تُعرض فوراً بلا سبينر
             setLoading(false);
-            return;
-          }
-        }
-        const res = await fetchAllProducts({
-          page: pg,
-          pageSize: PAGE_SIZE,
-          search: q,
-          storeIds: storeFilter,
-          storeId: storeFilterId || (scope.type === 'store' ? scope.storeId : undefined),
-          branchId: scope.type === 'branch' ? scope.branchId : undefined,
-        });
-        if (append) setProducts((prev) => [...prev, ...res.items]);
-        else setProducts(res.items);
-        setHasMore(res.hasMore);
-        setPage(pg);
+          },
+        );
       } catch (e: any) {
         toastError(typeof e === 'string' ? e : 'تعذر تحميل المنتجات');
       } finally {
@@ -111,6 +122,12 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
   );
 
   useEffect(() => {
+    // أول فتح: فوري ليعرض الكاش بلا ومضة؛ البحث/الفلتر: مهلة debounce
+    if (search.trim() === '' && !storeFilterId && !queryRef.current) {
+      queryRef.current = '';
+      load(0, '', false);
+      return;
+    }
     const t = setTimeout(() => {
       const q = search.trim();
       queryRef.current = q;

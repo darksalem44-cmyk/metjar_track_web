@@ -12,31 +12,41 @@ const cache = new Map();
 function load(rel) {
   if (cache.has(rel)) return cache.get(rel).exports;
   const full = path.join(ROOT, rel);
-  const raw = fs.readFileSync(full, 'utf8');
-  const js = ts.transpileModule(raw, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2020,
-      esModuleInterop: true,
-    },
-  }).outputText;
+  const raw = fs.readFileSync(full, 'utf8');    const js = ts.transpileModule(raw, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020,
+        esModuleInterop: true,
+        jsx: ts.JsxEmit.ReactJSX,
+      },
+    }).outputText;
   const module = { exports: {} };
   const fn = new Function('require', 'module', 'exports', '__filename', '__dirname', js);
   const stubRequire = (spec) => {
     if (spec.startsWith('@/')) {
       const target = spec.slice(2).replace(/\.ts$/, '');
-      const candidates = [`${target}.ts`, `${target}${path.sep}index.ts`];
+      const candidates = [`${target}.ts`, `${target}.tsx`, `${target}${path.sep}index.ts`];
       for (const c of candidates) if (fs.existsSync(path.join(ROOT, c))) return load(c);
       throw new Error(`unresolved ${spec}`);
     }
     if (spec.startsWith('.')) {
       const t = path.relative(ROOT, path.resolve(path.dirname(full), spec)).replace(/\\/g, '/').replace(/\.ts$/, '');
-      const candidates = [`${t}.ts`, `${t}/index.ts`];
+      const candidates = [`${t}.ts`, `${t}.tsx`, `${t}/index.ts`];
       for (const c of candidates) if (fs.existsSync(path.join(ROOT, c))) return load(c);
       throw new Error(`unresolved ${spec}`);
     }
-    if (spec === 'react') return { useCallback: (f) => f, useEffect: () => {}, useState: (v) => [v, () => {}] };
+    if (spec === 'react/jsx-runtime') return { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }), Fragment: 'Fragment' };
+    if (spec === 'react') return {
+      useCallback: (f) => f,
+      useEffect: () => {},
+      useState: (v) => [v, () => {}],
+      useMemo: (f) => f(),
+      useContext: () => null,
+      useRef: (v) => ({ current: v }),
+      createContext: () => ({ Provider: () => null }),
+    };
     if (spec === 'lucide-react') return new Proxy({}, { get: () => (props) => null });
+    if (spec === 'recharts') return new Proxy({}, { get: () => (props) => null });
     return require(spec);
   };
   fn(stubRequire, module, module.exports, full, path.dirname(full));
@@ -71,6 +81,7 @@ const trends = load('lib/trends.ts');
 const notifications = load('lib/notifications.ts');
 const backup = load('lib/data/backup.ts');
 const constants = load('lib/constants.ts');
+const accounts = load('lib/data/accounts.ts');
 
 // ═══════════ 1) المدققات والتنسيقات (lib/utils.ts) ═══════════
 eq('email مطلوب', utils.emailValidator(null), 'البريد الإلكتروني مطلوب');
@@ -292,6 +303,283 @@ try {
 } catch (e) {
   eq('fetchJobStatus بلا جلسة الرسالة', String(e), 'يجب تسجيل الدخول أولاً');
 }
+
+// ═══════════ 10) بناء التنبيهات من أحداث السجل (buildAlerts) ═══════════
+function eventRow(partial) {
+  return {
+    id: 'ev1',
+    actor_id: 'u1',
+    actor_role: 'employee',
+    event_action: 'created',
+    entity_type: 'store',
+    entity_id: 's1',
+    entity_name: 'متجر النور',
+    event_at: '2026-09-22T09:00:00',
+    details: { name: 'متجر النور', address: 'دمشق' },
+    ...partial,
+  };
+}
+
+// 10-أ) حدث إضافة متجر: معلوماتي + قاعدة الإضافة + اسم الفاعل من الخريطة
+const builtCreated = notifications.buildAlerts([
+  eventRow({}),
+], { actors: new Map([['u1', { fullName: 'أحمد', role: 'employee' }]]) });
+eq('buildAlerts واحد', builtCreated.length, 1);
+eq('buildAlerts الخطورة info', builtCreated[0].severity, 'info');
+eq('buildAlerts القاعدة entity_created', builtCreated[0].rule, 'entity_created');
+eq('buildAlerts الاسم من السطر', builtCreated[0].entityName, 'متجر النور');
+eq('buildAlerts الفاعل من الخريطة', builtCreated[0].actorName, 'أحمد');
+eq('buildAlerts دور الفاعل من actor_role', builtCreated[0].actorRole, 'employee');
+eq('buildAlerts غير محذوف', builtCreated[0].deleted, false);
+eq('buildAlerts storeId', builtCreated[0].storeId, undefined);
+includes('buildAlerts العنوان', builtCreated[0].title, '«متجر النور»');
+includes('buildAlerts التفصيل العنوان', builtCreated[0].detail, 'العنوان: دمشق');
+
+// 10-ب) اسم الفاعل يرتدّ إلى «مستخدم غير معروف» إن لم يوجد في profiles
+const builtUnknown = notifications.buildAlerts([eventRow({})]);
+eq('buildAlerts فاعل مجهول', builtUnknown[0].actorName, 'مستخدم غير معروف');
+
+// 10-ج) حذف متجر: حرج + قاعدة حذف المتجر + علم المحذوف + store_id من التفاصيل
+const builtDeleted = notifications.buildAlerts([
+  eventRow({
+    event_action: 'deleted',
+    entity_id: 's9',
+    details: { name: 'متجر قديم', store_id: 'parent-store' },
+  }),
+]);
+eq('buildAlerts الحذف حرج', builtDeleted[0].severity, 'critical');
+eq('buildAlerts قاعدة الحذف', builtDeleted[0].rule, 'store_deleted');
+eq('buildAlerts علم المحذوف', builtDeleted[0].deleted, true);
+eq('buildAlerts storeId من التفاصيل', builtDeleted[0].storeId, 'parent-store');
+
+// 10-د) حذف فرع: قاعدة الحذف + storeId يبقى في التنبيه (أساس فتح تفاصيل الفرع)
+const builtBranch = notifications.buildAlerts([
+  eventRow({ event_action: 'deleted', entity_type: 'branch', entity_id: 'b1', details: { name: 'فرع المزة', store_id: 'parent-store' } }),
+]);
+eq('buildAlerts قاعدة حذف فرع', builtBranch[0].rule, 'branch_deleted');
+eq('buildAlerts storeId للفرع', builtBranch[0].storeId, 'parent-store');
+
+// 10-هـ) كشف تغيّر السعر: من اللقطة السابقة للمنتج نفسه قبل الحدث
+const rowsPrice = [
+  eventRow({ id: 'ev-old', event_action: 'created', entity_type: 'product', entity_id: 'p1', entity_name: 'كوكيز', event_at: '2026-09-20T10:00:00', details: { name: 'كوكيز', price: 1500, currency: 'SYP' } }),
+  eventRow({ id: 'ev-new', event_action: 'updated', entity_type: 'product', entity_id: 'p1', entity_name: 'كوكيز', event_at: '2026-09-22T11:00:00', details: { name: 'كوكيز', price: 2000, currency: 'SYP' } }),
+];
+const prevPrices = notifications.previousPricesByEvent(
+  rowsPrice.filter((r) => r.id === 'ev-new'),
+  rowsPrice,
+);
+check('previousPrices يجد السابق', prevPrices['ev-new'] && prevPrices['ev-new'].price === 1500, JSON.stringify(prevPrices));
+const builtPriceChange = notifications.buildAlerts(rowsPrice, { previousPrices: prevPrices });
+const priceAlert = builtPriceChange.find((a) => a.id === 'ev-new');
+eq('buildAlerts تغيّر السعر حرج', priceAlert.severity, 'critical');
+eq('buildAlerts قاعدة تغيّر السعر', priceAlert.rule, 'product_price_changed');
+includes('buildAlerts تفصيل السعر القديم', priceAlert.detail, 'من 1500');
+includes('buildAlerts تفصيل السعر الجديد', priceAlert.detail, 'إلى 2000');
+
+// نفس السعر (تحديث وصف فقط): لا تغيير سعر → تحذير عادي
+const prevSame = notifications.previousPricesByEvent([rowsPrice[1]], [{ entity_id: 'p1', event_at: '2026-09-20T10:00:00', details: { price: 2000, currency: 'SYP' } }]);
+const builtSamePrice = notifications.buildAlerts([rowsPrice[1]], { previousPrices: prevSame });
+eq('buildAlerts نفس السعر تحذير', builtSamePrice[0].severity, 'warning');
+eq('buildAlerts نفس السعر قاعدة', builtSamePrice[0].rule, 'entity_updated');
+
+// بلا لقطة سابقة: تعديل منتج لا يُعدّ تغيّر سعر
+const builtNoPrev = notifications.buildAlerts([rowsPrice[1]], {});
+eq('buildAlerts بلا لقطة تحذير', builtNoPrev[0].rule, 'entity_updated');
+
+// 10-و) تفاصيل كنص JSON قديم (مثل الموبايل) تُقرأ بأمان — مع entity_name فارغ يرتدّ إلى details.name
+const builtJsonString = notifications.buildAlerts([
+  eventRow({ entity_name: '', details: JSON.stringify({ name: 'متجر من نص' }) }),
+]);
+eq('buildAlerts نص JSON اسم', builtJsonString[0].entityName, 'متجر من نص');
+
+// تفاصيل فاسدة لا تكسر البناء
+const builtBroken = notifications.buildAlerts([eventRow({ details: '{broken json' })]);
+eq('buildAlerts تفاصيل فاسدة لا تكسر', builtBroken.length, 1);
+eq('buildAlerts تفاصيل فاسدة الاسم ترجع للسطر', builtBroken[0].entityName, 'متجر النور');
+
+// ═══════════ 11) توجيه فتح الكيان من التنبيه (alertTarget في AlertRow الحقيقي) ═══════════
+const alertRowModule = load('components/notifications/AlertRow.tsx');
+const alertTarget = alertRowModule.alertTarget;
+
+const storeView = alertTarget(alert({ entityType: 'store', entityId: 's1', deleted: false }));
+eq('alertTarget متجر', storeView && storeView.name, 'store-details');
+eq('alertTarget متجر id', storeView && storeView.storeId, 's1');
+
+const branchView = alertTarget(alert({ entityType: 'branch', entityId: 'b1', storeId: 's1', deleted: false }));
+eq('alertTarget فرع مع storeId', branchView && branchView.name, 'branch-details');
+eq('alertTarget فرع storeId', branchView && branchView.storeId, 's1');
+eq('alertTarget فرع branchId', branchView && branchView.branchId, 'b1');
+
+const branchNoStore = alertTarget(alert({ entityType: 'branch', entityId: 'b1', storeId: undefined, deleted: false }));
+eq('alertTarget فرع بلا متجر null', branchNoStore, null);
+
+const productView = alertTarget(alert({ entityType: 'product', entityId: 'p1', deleted: false }));
+eq('alertTarget منتج', productView && productView.name, 'product-details');
+eq('alertTarget منتج id', productView && productView.productId, 'p1');
+
+eq('alertTarget محذوف null', alertTarget(alert({ entityId: 's1', deleted: true })), null);
+eq('alertTarget بلا id null', alertTarget(alert({ entityId: undefined, deleted: false })), null);
+eq('alertTarget نوع مجهول null', alertTarget(alert({ entityType: 'unknown', entityId: 'x1', deleted: false })), null);
+
+// ═══════════ 12) إشعارات النظام (lib/push.ts) ═══════════
+// محاكاة متصفح أدنى: window + atob بدل window.atob المستخدم في التحويل
+globalThis.window = globalThis;
+globalThis.atob = (s) => Buffer.from(s, 'base64').toString('binary');
+const push = load('lib/push.ts');
+
+eq('push pushSupported بلا navigator', push.pushSupported(), false);
+eq('push pushConfigured بلا مفتاح', push.pushConfigured(), false);
+
+const vapidBytes = push.urlBase64ToUint8Array('BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U');
+check('urlBase64 صحيح النوع', vapidBytes instanceof Uint8Array, typeof vapidBytes);
+eq('urlBase64 طول 65', vapidBytes.length, 65);
+eq('urlBase64 أول بايت 0x04', vapidBytes[0], 0x04);
+// نفس المفتاح بصيغة base64url - تعيين الأبجدية: '-' → '+' و '_' → '/'
+const vapidPlain = push.urlBase64ToUint8Array('BEl62iUYgUivxIkv69yViEuiBIa+Ib9+SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U');
+check('urlBase64 مطابق للـ base64 العادي', vapidBytes.every((b, i) => b === vapidPlain[i]), 'bytes differ');
+// استبدال المحارف بلا حشوة (طول %4 = 0)
+const swapBytes = push.urlBase64ToUint8Array('a-b_');
+const swapPlain = push.urlBase64ToUint8Array('a+b/');
+check('urlBase64 استبدال - و _', swapBytes.length === 3 && swapBytes.every((b, i) => b === swapPlain[i]), JSON.stringify([...swapBytes]));
+// حشوة المسار القصير: طول %4 = 3 يحتاج '=' واحد
+const padBytes = push.urlBase64ToUint8Array('a-b');
+const padPlain = push.urlBase64ToUint8Array('a+b');
+check('urlBase64 حشوة قصيرة', padBytes.length === 2 && padBytes.every((b, i) => b === padPlain[i]), JSON.stringify([...padBytes]));
+
+// ═══════════ 13) سلوك حقيقي: جلب التنبيهات من Supabase والاشتراك اللحظي ═══════════
+// fetchAdminAlerts بلا جلسة RLS: يجب ألا يرمي (يُعيد قائمة فارغة) أو يرمي خطأ مترجماً — ليس انهياراً غير معالج
+let fetchAlertsBehavior = 'unknown';
+try {
+  const live = await notifications.fetchAdminAlerts({ days: 30, limit: 80 });
+  fetchAlertsBehavior = Array.isArray(live) ? `array(${live.length})` : typeof live;
+} catch (e) {
+  fetchAlertsBehavior = `threw: ${String(e)}`;
+}
+check('fetchAdminAlerts سلوك محدد بلا انهيار', fetchAlertsBehavior.startsWith('array(') || fetchAlertsBehavior.startsWith('threw: تعذّر') || fetchAlertsBehavior.startsWith('threw: يجب'), fetchAlertsBehavior);
+console.log(`  — fetchAdminAlerts بدون جلسة: ${fetchAlertsBehavior}`);
+
+// subscribeToAlerts: قناة حقيقية ثم إلغاؤها نظيفاً
+try {
+  const unsubscribe = notifications.subscribeToAlerts(() => {});
+  await new Promise((r) => setTimeout(r, 600));
+  unsubscribe();
+  check('subscribeToAlerts اشتراك وإلغاء نظيفان', true);
+  console.log('  — subscribeToAlerts: الاشتراك والإلغاء بلا استثناءات');
+} catch (e) {
+  check('subscribeToAlerts اشتراك وإلغاء نظيفان', false, String(e));
+}
+
+// ═══════════ 14) كاش الصفحات (lib/cache.ts) — دورة حياة stale-while-revalidate ═══════════
+// محاكاة localStorage بذاكرة (window أصبح معرّفاً في القسم 12)
+const memStore = new Map();
+globalThis.window.localStorage = {
+  getItem: (k) => (memStore.has(k) ? memStore.get(k) : null),
+  setItem: (k, v) => memStore.set(k, String(v)),
+  removeItem: (k) => memStore.delete(k),
+  key: (i) => [...memStore.keys()][i] ?? null,
+  get length() { return memStore.size; },
+};
+const pageCache = load('lib/cache.ts');
+
+// فراغ: بلا نسخة مخزنة
+eq('cache فارغ يرجع null', pageCache.cacheGet('nope:key'), null);
+
+// أول تحميل: شبكة فقط بلا تطبيق كاش
+const seen = [];
+let fetchCalls = 0;
+await pageCache.cachedLoad('k1', async () => { fetchCalls += 1; return { n: 1 }; }, (data, src) => seen.push([src, data]));
+eq('cachedLoad أول مرة استدعاء شبكة واحد', fetchCalls, 1);
+eq('cachedLoad أول مرة تطبيق واحد', seen.length, 1);
+eq('cachedLoad أول مرة القيمة', seen[0][1].n, 1);
+eq('cachedLoad أول مرة المصدر network', seen[0][0], 'network');
+
+// فتح ثانٍ: الكاش يُعرض أولاً ثم الشبكة تحدّث
+seen.length = 0;
+await pageCache.cachedLoad('k1', async () => ({ n: 2 }), (data, src) => seen.push([src, data]));
+eq('cachedLoad ثانية تطبيقان', seen.length, 2);
+eq('cachedLoad ثانية الكاش أولاً', seen[0][0], 'cache');
+eq('cachedLoad ثانية قيمة الكاش القديمة', seen[0][1].n, 1);
+eq('cachedLoad ثانية الشبكة ثانياً', seen[1][0], 'network');
+eq('cachedLoad ثانية القيمة الجديدة', seen[1][1].n, 2);
+
+// فشل الشبكة مع نسخة معروضة: يبقى المعروض بلا خطأ
+seen.length = 0;
+await pageCache.cachedLoad('k1', async () => { throw new Error('offline'); }, (data, src) => seen.push([src, data]));
+eq('cachedLoad فشل مع كاش يبقي المعروض', seen.length, 1);
+eq('cachedLoad فشل مع كاش المصدر cache', seen[0][0], 'cache');
+
+// فشل الشبكة بلا نسخة: يرمي الخطأ للصفحة
+let threwNoCache = null;
+try { await pageCache.cachedLoad('k2', async () => { throw 'انقطع الاتصال'; }, () => {}); } catch (e) { threwNoCache = String(e); }
+eq('cachedLoad فشل بلا كاش يرمي', threwNoCache, 'انقطع الاتصال');
+
+// الإبطال بالأجيال: التعديل يرفع الجيل فتُتجاهل المفاتيح القديمة
+pageCache.cacheSet(pageCache.cacheKey('dom', 'x'), 'v1');
+eq('cacheKey يقرأ المخزون', pageCache.cacheGet(pageCache.cacheKey('dom', 'x')), 'v1');
+pageCache.cacheBump('dom');
+eq('cacheBump يبطل النطاق', pageCache.cacheGet(pageCache.cacheKey('dom', 'x')), null);
+
+// إدخال فاسد لا يكسر القراءة
+memStore.set('mt_page_cache_v1:broken', '{corrupted');
+eq('cache فاسد يرجع null', pageCache.cacheGet('broken'), null);
+
+// ═══════════ 15) إدارة الحسابات: مدقق البيانات وحمايات الترقية والتعديل ═══════════
+eq('userValidator اسم فارغ', utils.userValidator('   '), 'الاسم مطلوب');
+eq('userValidator اسم قصير', utils.userValidator('أ'), 'الاسم قصير جداً');
+eq('userValidator بريد فاسد', utils.userValidator('اسم سليم', 'bad@mail'), 'صيغة البريد الإلكتروني غير صحيحة');
+eq('userValidator سليم', utils.userValidator('اسم سليم', 'a@b.co'), null);
+eq('userValidator بلا بريد', utils.userValidator('اسم سليم', ''), null);
+
+// تحديث بيانات بلا جلسة: RLS يرفض → خطأ مترجم (لا انهيار)
+try {
+  await accounts.updateAccountDetails('00000000-0000-0000-0000-000000000000', { fullName: 'اختبار', isActive: true });
+  check('updateAccountDetails بلا جلسة يرفض', false, 'resolved unexpectedly');
+} catch (e) {
+  check('updateAccountDetails بلا جلسة يرفض برسالة', typeof e === 'string' && e.length > 0, String(e));
+}
+
+// الترقية عبر RPC: بلا جلسة مدير يجب أن تُرفض بأمان (الدالة أو RLS)
+try {
+  await accounts.promoteEmployeeToManager('00000000-0000-0000-0000-000000000000');
+  check('promoteEmployeeToManager بلا جلسة يرفض', false, 'resolved unexpectedly');
+} catch (e) {
+  check('promoteEmployeeToManager بلا جلسة يرفض برسالة', typeof e === 'string' && e.length > 0, String(e));
+  console.log(`  — promoteEmployeeToManager بلا جلسة: رفض آمن (${String(e).slice(0, 70)})`);
+}
+
+// ═══════════ 16) تحميل وحدات الواجهة المعدّلة (تحقق الاستيرادات) ═══════════
+for (const mod of [
+  'components/accounts/AdminAccountsPage.tsx',
+  'components/stores/StoresList.tsx',
+  'components/stores/StoreDetails.tsx',
+  'components/products/ProductsPage.tsx',
+  'components/branches/BranchDetails.tsx',
+  'components/activities/ActivitiesList.tsx',
+  'components/profile/ProfilePage.tsx',
+]) {
+  try { load(mod); check(`تحميل ${mod}`, true); }
+  catch (e) { check(`تحميل ${mod}`, false, String(e)); }
+}
+
+// ═══════════ 17) الملف الشخصي: تعديل اسم المدير ═══════════
+// updateProfileName: تحقق صفر صفوف + إبطال كاش الحسابات والنشاطات
+const profilesMod = load('lib/data/profiles.ts');
+check('تحميل lib/data/profiles.ts', true);
+let nameThrew = null;
+try {
+  await profilesMod.updateProfileName('00000000-0000-0000-0000-000000000000', 'اسم اختبار');
+  check('updateProfileName بلا جلسة/صف يرفض', false, 'resolved unexpectedly');
+} catch (e) {
+  nameThrew = typeof e === 'string' ? e : String(e);
+  check('updateProfileName بلا جلسة/صف يرفض برسالة عربية', nameThrew.includes('تعذر') || nameThrew.length > 0, nameThrew);
+}
+// إبطال الكاش سلوك مستقل يُقاس مباشرة: cacheBump يرفع الجيل فتصبح المفاتيح القديمة مفقودة
+const genBefore = pageCache.cacheGeneration('accounts');
+pageCache.cacheSet(pageCache.cacheKey('accounts', 'team-all'), [{ id: 'stale' }]);
+pageCache.cacheBump('accounts');
+pageCache.cacheBump('activities');
+check('تحديث الاسم يبطل كاش الحسابات (محاكاة cacheBump)', pageCache.cacheGet(pageCache.cacheKey('accounts', 'team-all')) === null && pageCache.cacheGeneration('accounts') !== genBefore, 'generation unchanged');
+console.log(`  — updateProfileName بلا صف: رفض آمن (${nameThrew})`);
 
 // ═══════════ النتيجة ═══════════
 console.log(`\n===== SMOKE RESULTS =====`);

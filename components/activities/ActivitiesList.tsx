@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import { fetchAllAccounts } from '@/lib/data/accounts';
 import { getActorSummariesForActors } from '@/lib/data/activities';
+import { cacheKey, cachedLoad } from '@/lib/cache';
 import type { ActorSummary, ActorWithProfile, PeriodKey, AccountFilter, UserRole } from '@/lib/types';
 import { accountFilterOptions } from '@/lib/constants';
 import { getPeriodRange, cn } from '@/lib/utils';
@@ -61,17 +62,28 @@ export default function ActivitiesList() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const all = await fetchAllAccounts();
-      setActors(all);
-      if (all.length === 0) return;
-      const { from, to } = getPeriodRange(range === 'all' ? 'last7' : range, new Date());
-      if (range === 'all') from.setFullYear(2000);
-      // نمرّر دور كل حساب كما هو: الدالة تفلتر بـ p_actor_role ولا تفهم قيمة تجميعية
-      const rows = await getActorSummariesForActors(
-        all.map((a) => ({ id: a.id, role: a.role })),
-        { from, to },
+      const windowKey = range === 'all' ? 'all' : range;
+      await cachedLoad(
+        cacheKey('activities', `list:${windowKey}`),
+        async () => {
+          const all = await fetchAllAccounts();
+          if (all.length === 0) return { accounts: all, summaries: {} as Record<string, ActorSummary> };
+          const { from, to } = getPeriodRange(range === 'all' ? 'last7' : range, new Date());
+          if (range === 'all') from.setFullYear(2000);
+          // نمرّر دور كل حساب كما هو: الدالة تفلتر بـ p_actor_role ولا تفهم قيمة تجميعية
+          const rows = await getActorSummariesForActors(
+            all.map((a) => ({ id: a.id, role: a.role })),
+            { from, to },
+          );
+          return { accounts: all, summaries: rows };
+        },
+        (bundle) => {
+          setActors(bundle.accounts);
+          setSummaries(bundle.summaries);
+          // النسخة المخزنة تُعرض فوراً بلا سبينر
+          setLoading(false);
+        },
       );
-      setSummaries(rows);
     } catch (e: any) {
       toastError(typeof e === 'string' ? e : 'تعذر تحميل النشاطات');
     } finally {

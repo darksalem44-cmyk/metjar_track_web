@@ -6,6 +6,7 @@ import { useProfile } from '@/components/ProfileContext';
 import { fetchBranchById, deleteBranch } from '@/lib/data/branches';
 import { fetchStoreById, getCreatorNames } from '@/lib/data/stores';
 import { fetchProductsByBranch } from '@/lib/data/products';
+import { cacheKey, cachedLoad } from '@/lib/cache';
 import type { Branch, Product } from '@/lib/types';
 import { deleteImageObjects, filterStoredPaths } from '@/lib/supabase';
 import { relativeTime, formatPrice } from '@/lib/utils';
@@ -33,29 +34,48 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
   const [showWallets, setShowWallets] = useState(false);
 
   useEffect(() => {
+    let disposed = false;
     (async () => {
-      try {
+      const bundleFetcher = async () => {
         const b = await fetchBranchById(branchId);
-        if (!b) {
-          toastError('تعذر العثور على الفرع');
-          router.pop();
-          return;
-        }
+        if (!b) return null;
         const [store, names, pr] = await Promise.all([
           fetchStoreById(storeId),
           getCreatorNames([b.createdBy]),
           fetchProductsByBranch(branchId, 100),
         ]);
-        setBranch(b);
-        setStoreName(store?.name ?? '');
-        setCreatorName(names[b.createdBy] ?? '');
-        setProducts(pr);
+        return { branch: b, storeName: store?.name ?? '', creatorName: names[b.createdBy] ?? '', products: pr };
+      };
+      try {
+        await cachedLoad(
+          cacheKey('stores', `branch:${branchId}`),
+          bundleFetcher,
+          (bundle, source) => {
+            if (disposed) return;
+            if (!bundle) {
+              if (source === 'network') {
+                toastError('تعذر العثور على الفرع');
+                router.pop();
+              }
+              return;
+            }
+            setBranch(bundle.branch);
+            setStoreName(bundle.storeName);
+            setCreatorName(bundle.creatorName);
+            setProducts(bundle.products);
+            // النسخة المخزنة تُعرض فوراً بلا سبينر، والشبكة تحدّث الوجهة عند وصولها
+            setLoading(false);
+          },
+        );
       } catch (e: any) {
-        toastError(typeof e === 'string' ? e : 'تعذر تحميل الفرع');
+        if (!disposed) toastError(typeof e === 'string' ? e : 'تعذر تحميل الفرع');
       } finally {
-        setLoading(false);
+        if (!disposed) setLoading(false);
       }
     })();
+    return () => {
+      disposed = true;
+    };
   }, [branchId, storeId, router]);
 
   if (loading || !branch) return <CenteredSpinner label="جاري تحميل الفرع..." />;

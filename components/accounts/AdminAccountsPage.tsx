@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchAllAccounts, adminResetPassword } from '@/lib/data/accounts';
+import { fetchAllAccounts, adminResetPassword, updateAccountDetails, promoteEmployeeToManager } from '@/lib/data/accounts';
 import type { ActorWithProfile, UserRole } from '@/lib/types';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { KeyRound, UserRound, Store as StoreIcon, Eye, EyeOff } from 'lucide-react';
-import { Avatar, Button, CenteredSpinner, Chip, EmptyState, StatCard } from '@/components/ui/controls';
+import { cacheKey, cachedLoad } from '@/lib/cache';
+import { userValidator } from '@/lib/utils';
+import { KeyRound, UserRound, Store as StoreIcon, Eye, EyeOff, Pencil, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Avatar, Button, CenteredSpinner, Chip, EmptyState, StatCard, Toggle } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
 import { ConfirmDialog, Modal } from '@/components/ui/modals';
 
@@ -30,11 +32,35 @@ export default function AdminAccountsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  // تدفق تعديل معلومات المستخدم: الاسم والبريد وحالة التفعيل
+  const [editTarget, setEditTarget] = useState<ActorWithProfile | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editActive, setEditActive] = useState(true);
+
+  // تدفق ترقية موظف إلى مدير
+  const [promoteTarget, setPromoteTarget] = useState<ActorWithProfile | null>(null);
+  const [promoteConfirmName, setPromoteConfirmName] = useState('');
+  const [promoteError, setPromoteError] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const all = await fetchAllAccounts();
-      setAccounts(all.filter((a) => a.role !== 'manager'));
+      await cachedLoad(
+        cacheKey('accounts', 'team-all'),
+        async () => {
+          const all = await fetchAllAccounts();
+          return all.filter((a) => a.role !== 'manager');
+        },
+        (rows) => {
+          setAccounts(rows);
+          // النسخة المخزنة تُعرض فوراً بلا سبينر، والشبكة تحدّث القائمة عند وصولها
+          setLoading(false);
+        },
+      );
     } catch (e: any) {
       toastError(typeof e === 'string' ? e : 'تعذر تحميل الحسابات');
     } finally {
@@ -124,6 +150,80 @@ export default function AdminAccountsPage() {
     }
   };
 
+  const openEdit = (acc: ActorWithProfile) => {
+    setEditTarget(acc);
+    setEditName(acc.fullName);
+    setEditEmail(acc.email ?? '');
+    setEditActive(acc.isActive);
+    setEditError(null);
+  };
+
+  const closeEdit = () => {
+    setEditTarget(null);
+    setEditError(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    const error = userValidator(editName, editEmail);
+    if (error) {
+      setEditError(error);
+      return;
+    }
+    const emailChanged = editEmail.trim().toLowerCase() !== (editTarget.email ?? '').trim().toLowerCase();
+    if (emailChanged) {
+      setEditError('لا يمكن تغيير البريد الإلكتروني بعد إنشاء الحساب');
+      return;
+    }
+    const nameChanged = editName.trim() !== editTarget.fullName;
+    const activeChanged = editActive !== editTarget.isActive;
+    if (!nameChanged && !activeChanged) {
+      closeEdit();
+      return;
+    }
+    setEditSaving(true);
+    try {
+      await updateAccountDetails(editTarget.id, { fullName: editName.trim(), isActive: editActive });
+      toastSuccess('تم تحديث بيانات المستخدم');
+      closeEdit();
+      await load();
+    } catch (e: any) {
+      toastError(typeof e === 'string' ? e : 'تعذر تحديث بيانات المستخدم');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const openPromote = (acc: ActorWithProfile) => {
+    setPromoteTarget(acc);
+    setPromoteConfirmName('');
+    setPromoteError(null);
+  };
+
+  const closePromote = () => {
+    setPromoteTarget(null);
+    setPromoteError(null);
+  };
+
+  const doPromote = async () => {
+    if (!promoteTarget) return;
+    if (promoteConfirmName.trim() !== promoteTarget.fullName.trim()) {
+      setPromoteError('اكتب اسم المستخدم بشكل صحيح للتأكيد');
+      return;
+    }
+    setPromoting(true);
+    try {
+      await promoteEmployeeToManager(promoteTarget.id);
+      toastSuccess(`تمت ترقية ${promoteTarget.fullName} إلى مدير`);
+      closePromote();
+      await load();
+    } catch (e: any) {
+      toastError(typeof e === 'string' ? e : 'تعذرت عملية الترقية');
+    } finally {
+      setPromoting(false);
+    }
+  };
+
   const filterBtn = (active: boolean) =>
     cn(
       'px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap',
@@ -195,9 +295,19 @@ export default function AdminAccountsPage() {
                     <Chip tone={acc.isActive ? 'success' : 'neutral'} label={acc.isActive ? 'نشط' : 'معطّل'} />
                   </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => openReset(acc)} icon={<KeyRound className="w-4 h-4" />}>
-                  إعادة تعيين كلمة المرور
-                </Button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => openEdit(acc)} icon={<Pencil className="w-3.5 h-3.5" />}>
+                    تعديل
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => openReset(acc)} icon={<KeyRound className="w-4 h-4" />}>
+                    كلمة المرور
+                  </Button>
+                  {acc.role === 'employee' && (
+                    <Button variant="outline" size="sm" onClick={() => openPromote(acc)} icon={<ShieldCheck className="w-3.5 h-3.5" />}>
+                      ترقية لمدير
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -300,6 +410,120 @@ export default function AdminAccountsPage() {
           بعد التأكيد ستصبح كلمة المرور الجديدة فعالة مباشرة.
         </p>
       </ConfirmDialog>
+
+      {/* نافذة تعديل بيانات المستخدم */}
+      <Modal open={!!editTarget} onClose={closeEdit} title="تعديل بيانات المستخدم">
+        {editTarget && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-[var(--border)]">
+              <Avatar name={editTarget.fullName} size={40} />
+              <div className="min-w-0">
+                <p className="text-[14px] font-bold text-[var(--text)] truncate">{editTarget.fullName}</p>
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                  <Chip tone={editTarget.role === 'merchant' ? 'primary' : 'purple'} icon={editTarget.role === 'merchant' ? <StoreIcon className="w-3 h-3" /> : undefined} label={roleLabel(editTarget.role)} />
+                  <Chip tone={editTarget.isActive ? 'success' : 'neutral'} label={editTarget.isActive ? 'نشط' : 'معطّل'} />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold text-[var(--text-secondary)] mb-1.5">الاسم الكامل *</label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  setEditError(null);
+                }}
+                autoFocus
+                className="w-full px-3.5 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] focus:border-[var(--primary)]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold text-[var(--text-secondary)] mb-1.5">البريد الإلكتروني</label>
+              <input
+                type="email"
+                value={editEmail}
+                disabled
+                dir="ltr"
+                className="w-full px-3.5 py-2.5 bg-[var(--surface-variant)] border border-[var(--border)] rounded-xl text-[13px] text-left opacity-70 cursor-not-allowed"
+              />
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">البريد الإلكتروني لا يمكن تغييره بعد إنشاء الحساب</p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
+              <div>
+                <p className="text-[13px] font-semibold text-[var(--text)]">حالة الحساب</p>
+                <p className="text-[11px] text-[var(--text-secondary)]">تعطيل الحساب يمنع صاحبه من تسجيل الدخول</p>
+              </div>
+              <Toggle size="sm" checked={editActive} onChange={setEditActive} />
+            </div>
+
+            {editError && <p className="text-[12px] font-semibold text-[var(--error)]">{editError}</p>}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button variant="ghost" onClick={closeEdit} disabled={editSaving}>إلغاء</Button>
+              <Button onClick={saveEdit} loading={editSaving}>حفظ التعديلات</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* نافذة ترقية موظف إلى مدير */}
+      <Modal open={!!promoteTarget} onClose={closePromote} title="ترقية إلى مدير">
+        {promoteTarget && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-[var(--border)]">
+              <Avatar name={promoteTarget.fullName} size={40} />
+              <div className="min-w-0">
+                <p className="text-[14px] font-bold text-[var(--text)] truncate">{promoteTarget.fullName}</p>
+                <p className="text-[11px] text-[var(--text-secondary)] truncate" dir="ltr">{promoteTarget.email || '—'}</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--warning)]/40 bg-[var(--warning-surface)] p-3">
+              <p className="text-[12px] font-semibold text-[var(--warning)] flex items-center gap-1.5 mb-1">
+                <ShieldOff className="w-3.5 h-3.5" />
+                عملية حساسة
+              </p>
+              <p className="text-[12px] text-[var(--text-secondary)] leading-relaxed">
+                سيصبح «{promoteTarget.fullName}» مديراً بصلاحيات كاملة على كل المتاجر والفروع والمنتجات
+                والحسابات والتنبيهات والنسخ الاحتياطي، ولن يظهر ضمن قائمة الموظفين بعدها.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold text-[var(--text-secondary)] mb-1.5">
+                اكتب اسم المستخدم للتأكيد: <span className="text-[var(--error)]">{promoteTarget.fullName}</span>
+              </label>
+              <input
+                type="text"
+                value={promoteConfirmName}
+                onChange={(e) => {
+                  setPromoteConfirmName(e.target.value);
+                  setPromoteError(null);
+                }}
+                autoFocus
+                className="w-full px-3.5 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] focus:border-[var(--primary)]"
+              />
+            </div>
+
+            {promoteError && <p className="text-[12px] font-semibold text-[var(--error)]">{promoteError}</p>}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button variant="ghost" onClick={closePromote} disabled={promoting}>إلغاء</Button>
+              <Button
+                onClick={doPromote}
+                loading={promoting}
+                disabled={promoteConfirmName.trim() !== promoteTarget.fullName.trim()}
+              >
+                تأكيد الترقية
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

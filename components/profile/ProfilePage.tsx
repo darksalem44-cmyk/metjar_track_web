@@ -6,6 +6,7 @@ import { useRouter } from '@/components/RouterContext';
 import { signOut } from '@/lib/supabase';
 import { updateProfileName, changePasswordForm } from '@/lib/data/profiles';
 import { roleLabels } from '@/lib/constants';
+import { nameValidator } from '@/lib/utils';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { Avatar, Button, Chip, PageHeader, Toggle } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
@@ -20,6 +21,9 @@ export default function ProfilePage() {
   const theme = useTheme();
   const [editName, setEditName] = useState(false);
   const [name, setName] = useState(profile.fullName);
+  // عرض فوري للاسم الجديد حتى قبل وصول تحديث البروفايل عبر السياق/الـ realtime
+  const [displayName, setDisplayName] = useState(profile.fullName);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [savingName, setSavingName] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -34,10 +38,32 @@ export default function ProfilePage() {
     setStandalone(isStandalone());
   }, []);
 
+  // تزامن العرض مع البروفايل القادم من السياق (بعد الحفظ أو التعديل من صفحة الحسابات)
+  useEffect(() => {
+    setDisplayName(profile.fullName);
+  }, [profile.fullName]);
+
+  const openNameEditor = () => {
+    setName(profile.fullName);
+    setNameError(null);
+    setEditName(true);
+  };
+
   const submitName = async () => {
+    const error = nameValidator(name);
+    if (error) {
+      setNameError(error);
+      return;
+    }
+    const trimmed = name.trim();
+    if (trimmed === profile.fullName) {
+      setEditName(false);
+      return;
+    }
     setSavingName(true);
     try {
-      await updateProfileName(profile.id, name.trim());
+      await updateProfileName(profile.id, trimmed);
+      setDisplayName(trimmed);
       setEditName(false);
       toastSuccess('تم تحديث الاسم');
     } catch (e: any) {
@@ -76,11 +102,20 @@ export default function ProfilePage() {
       <PageHeader title="الملف الشخصي" />
 
       <div className="flex items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 mb-5">
-        <Avatar name={profile.fullName} size={64} />
+        <Avatar name={displayName} size={64} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-[16px] font-bold text-[var(--text)] truncate">{profile.fullName}</p>
-            
+            <p className="text-[16px] font-bold text-[var(--text)] truncate">{displayName}</p>
+            {profile.role === 'manager' && (
+              <button
+                type="button"
+                onClick={openNameEditor}
+                title="تعديل الاسم"
+                className="grid place-items-center w-7 h-7 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] shrink-0"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <p className="text-[12px] text-[var(--text-secondary)] flex items-center gap-1">
             <UserIcon className="w-3.5 h-3.5" /> {roleLabels[profile.role]}
@@ -172,7 +207,16 @@ export default function ProfilePage() {
 
       <Modal open={editName} onClose={() => setEditName(false)} title="تعديل الاسم">
         <div className="space-y-4">
-          <TextField label="الاسم الكامل" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <TextField
+            label="الاسم الكامل"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setNameError(null);
+            }}
+            error={nameError ?? undefined}
+            autoFocus
+          />
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" onClick={() => setEditName(false)} disabled={savingName}>إلغاء</Button>
             <Button onClick={submitName} loading={savingName}>حفظ</Button>

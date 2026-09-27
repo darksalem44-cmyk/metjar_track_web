@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Profile, UserRole } from '@/lib/types';
 import { translateError } from '@/lib/constants';
+import { cacheBump } from '@/lib/cache';
 
 export async function getProfile(id: string): Promise<Profile | null> {
   const { data, error } = await supabase
@@ -74,11 +75,19 @@ function mapProfile(row: any): Profile {
 }
 
 export async function updateProfileName(id: string, fullName: string): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .update({ full_name: fullName })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
   if (error) throw translateError(error);
+  // RLS قد يمنع التحديث صامتاً (صفر صفوف) — نجاح زائف يضلل المستخدم
+  if (!data || data.length === 0) {
+    throw 'تعذر تحديث الاسم — تأكد من تسجيل الدخول';
+  }
+  // اسم المستخدم يظهر في قوائم الحسابات والنشاطات المخزنة — يُبطل الكاش
+  cacheBump('accounts');
+  cacheBump('activities');
 }
 
 export async function changePasswordForm(currentPassword: string, newPassword: string): Promise<void> {

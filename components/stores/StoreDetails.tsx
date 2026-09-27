@@ -6,6 +6,7 @@ import { useProfile } from '@/components/ProfileContext';
 import { fetchStoreById, getCreatorNames, canEditStore, canDeleteStore, deleteStore } from '@/lib/data/stores';
 import { fetchBranchesByStore } from '@/lib/data/branches';
 import { fetchProductsByStore, countProductsByStore } from '@/lib/data/products';
+import { cacheKey, cachedLoad } from '@/lib/cache';
 import type { Branch, Product } from '@/lib/types';
 import { deleteImageObjects, filterStoredPaths } from '@/lib/supabase';
 import { relativeTime, formatPrice } from '@/lib/utils';
@@ -51,26 +52,50 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
   const [showWallets, setShowWallets] = useState(false);
 
   useEffect(() => {
+    let disposed = false;
     (async () => {
-      const s = await fetchStoreById(storeId);
-      if (!s) {
-        toastError('تعذر العثور على المتجر');
-        router.pop();
-        return;
+      const bundleFetcher = async () => {
+        const s = await fetchStoreById(storeId);
+        if (!s) return null;
+        const [br, pr, count, names] = await Promise.all([
+          fetchBranchesByStore(s.id),
+          fetchProductsByStore(s.id, 100),
+          countProductsByStore(s.id),
+          getCreatorNames([s.createdBy]),
+        ]);
+        return { store: s, branches: br, products: pr, count, creatorName: names[s.createdBy] ?? '' };
+      };
+      try {
+        await cachedLoad(
+          cacheKey('stores', `details:${storeId}`),
+          bundleFetcher,
+          (bundle, source) => {
+            if (disposed) return;
+            if (!bundle) {
+              if (source === 'network') {
+                toastError('تعذر العثور على المتجر');
+                router.pop();
+              }
+              return;
+            }
+            setStore(bundle.store);
+            setBranches(bundle.branches);
+            setProducts(bundle.products);
+            setProductCount(bundle.count);
+            setCreatorName(bundle.creatorName);
+            // النسخة المخزنة تُعرض فوراً بلا سبينر، والشبكة تحدّث الوجهة عند وصولها
+            setLoading(false);
+          },
+        );
+      } catch (e: any) {
+        if (!disposed) toastError(typeof e === 'string' ? e : 'تعذر تحميل المتجر');
+      } finally {
+        if (!disposed) setLoading(false);
       }
-      setStore(s);
-      const [br, pr, count, names] = await Promise.all([
-        fetchBranchesByStore(s.id),
-        fetchProductsByStore(s.id, 100),
-        countProductsByStore(s.id),
-        getCreatorNames([s.createdBy]),
-      ]);
-      setBranches(br);
-      setProducts(pr);
-      setProductCount(count);
-      setCreatorName(names[s.createdBy] ?? '');
-      setLoading(false);
     })();
+    return () => {
+      disposed = true;
+    };
   }, [storeId, router]);
 
   if (loading || !store) return <CenteredSpinner label="جاري تحميل المتاجر..." />;
