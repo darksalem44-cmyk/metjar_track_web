@@ -8,7 +8,7 @@ import type { ActivityEntityType } from '@/lib/types';
 import {
   applyAlertSettings,
   defaultAlertSettings,
-  fetchAdminAlerts,
+  fetchAdminAlertsResult,
   normalizeAlertSettings,
   subscribeToAlerts,
   type AdminAlert,
@@ -19,6 +19,8 @@ interface AlertsState {
   /** التنبيهات الظاهرة بعد تطبيق القواعد والكتم */
   alerts: AdminAlert[];
   loading: boolean;
+  /** true عندما تكون هناك أحداث أقدم مما تعرضه النافذة الحالية */
+  truncated: boolean;
   /** عدد غير المقروء المهم — وهو ما يظهر على الجرس */
   unread: number;
   /** ما أخفته القواعد المعطّلة */
@@ -79,6 +81,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
   const enabled = profile.role === 'manager';
 
   const [rawAlerts, setRawAlerts] = useState<AdminAlert[]>([]);
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(enabled);
   const [seenAt, setSeenAt] = useState<string | null>(() => readStorage(storageKey('seen', profile.id)));
   const [settings, setSettings] = useState<AlertSettings>(() => readSettings(profile.id));
@@ -86,7 +89,9 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     if (!enabled) return;
     try {
-      setRawAlerts(await fetchAdminAlerts());
+      const result = await fetchAdminAlertsResult();
+      setRawAlerts(result.alerts);
+      setTruncated(result.truncated);
     } catch {
       // فشل التحديث لا يُفقد ما هو معروض حالياً
     } finally {
@@ -219,6 +224,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     () => ({
       alerts: feed.alerts,
       loading,
+      truncated,
       unread: feed.unread,
       hiddenByRules: feed.hiddenByRules,
       mutedCount: feed.muted,
@@ -234,6 +240,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     [
       feed,
       loading,
+      truncated,
       settings,
       seenAt,
       refresh,

@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Copy, Check, MessageCircle } from 'lucide-react';
-import { useState } from 'react';
+import { Copy, Check, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -18,12 +18,22 @@ export function CopyButton({
   iconOnly?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    [],
+  );
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       toast('تم النسخ', 'success', 1500);
-      setTimeout(() => setCopied(false), 1500);
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+      resetTimer.current = setTimeout(() => setCopied(false), 1500);
     } catch {
       toast('تعذر النسخ', 'error');
     }
@@ -32,6 +42,7 @@ export function CopyButton({
     <button
       type="button"
       onClick={copy}
+      aria-label={iconOnly ? (copied ? 'تم النسخ' : (label ?? 'نسخ')) : undefined}
       className={cn(
         'inline-flex items-center gap-1.5 text-[12px] font-semibold rounded-lg px-2 py-1.5 transition-colors',
         copied ? 'text-[var(--green)]' : 'text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--surface-variant)]',
@@ -73,6 +84,7 @@ export function CreatedAccountActions({
   password: string;
   name: string;
 }) {
+  const [revealed, setRevealed] = useState(true);
   const summary = `تم إنشاء حساب ${name} في متجر تراك\nالبريد الإلكتروني: ${email}\nكلمة المرور: ${password}`;
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
@@ -80,10 +92,21 @@ export function CreatedAccountActions({
         <div className="min-w-0">
           <p className="text-[11px] text-[var(--text-secondary)] mb-1" dir="ltr">{email}</p>
           <p className="text-[13px] font-mono font-semibold text-[var(--text)] tracking-wider" dir="ltr">
-            {password}
+            {revealed ? password : '••••••••'}
           </p>
         </div>
-        <CopyButton text={`${email}\n${password}`} />
+        <div className="flex items-center shrink-0">
+          <button
+            type="button"
+            onClick={() => setRevealed((v) => !v)}
+            aria-label={revealed ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+            aria-pressed={revealed}
+            className="grid place-items-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]"
+          >
+            {revealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+          <CopyButton text={`${email}\n${password}`} />
+        </div>
       </div>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[12px] text-[var(--text-secondary)]">حفظ كلمة المرور ومشاركتها</p>

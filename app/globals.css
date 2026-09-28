@@ -4,6 +4,7 @@
 
 :root {
   --background: #f5f3f7;
+  --surface-main: #f5f3f7;
   --surface: #ffffff;
   --surface-variant: #eae7ee;
   --input: #faf8fb;
@@ -11,7 +12,7 @@
   --border-light: #c7c3ce;
   --text: #1e1b21;
   --text-secondary: #69656f;
-  --text-muted: #98949f;
+  --text-muted: #6f6b78;
   --primary: #984399;
   --on-primary: #ffffff;
   --on-error: #ffffff;
@@ -24,7 +25,7 @@
   --accent-text: #3e1a3b;
   --error: #a32d2d;
   --error-dark: #791f1f;
-  --error-surface: #f09595;
+  --error-surface: #f7dede;
   --error-text: #791f1f;
   --warning: #d85a30;
   --warning-surface: #faece7;
@@ -32,11 +33,12 @@
   --purple-light: #eeedfe;
   --orange: #d85a30;
   --orange-light: #faece7;
-  --green: #97c459;
+  --green: #4e7d1c;
 }
 
 .dark {
   --background: #161419;
+  --surface-main: #161419;
   --surface: #1e1c24;
   --surface-variant: #2a2832;
   --input: #2a2832;
@@ -44,7 +46,7 @@
   --border-light: #555363;
   --text: #f1eff5;
   --text-secondary: #a6a2b0;
-  --text-muted: #6f6a7c;
+  --text-muted: #8d8899;
   --primary: #d5a8d6;
   --on-primary: #371738;
   --on-error: #1e1c24;
@@ -69,7 +71,9 @@
 }
 
 @theme inline {
+  --breakpoint-xs: 20rem;
   --color-background: var(--background);
+  --color-surface-main: var(--surface-main);
   --color-surface: var(--surface);
   --color-surface-variant: var(--surface-variant);
   --color-input: var(--input);
@@ -135,6 +139,11 @@
   select,
   textarea {
     outline: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 }
 

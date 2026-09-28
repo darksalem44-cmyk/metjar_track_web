@@ -1,10 +1,17 @@
 ﻿import { supabase } from '@/lib/supabase';
 import type { Product, CurrencyCode } from '@/lib/types';
 import { translateError } from '@/lib/constants';
-import { resolvePage, type PageParams, type PageResult } from './base';
-import { cacheBump } from '@/lib/cache';
+import { resolvePage, type Row, type PageParams, type PageResult } from './base';
+import { cacheBump, cacheKey, cacheGet } from '@/lib/cache';
 
-export function mapProduct(row: any): Product {
+/** مدة صلاحية عدّاد الإجمالي الكلي داخل التخزين المحلي قبل إعادة حسابه (60 ثانية). */
+const COUNT_TTL_MS = 60 * 1000;
+
+/** الأعمدة التي يقرؤها mapProduct — تمنع سحب JSON كامل لكل منتج في كل صفحة. */
+const PRODUCT_SELECT =
+  'id, store_id, branch_id, name, price, currency, images_url, description, category, is_best_seller, created_by, created_at, updated_at';
+
+export function mapProduct(row: Row): Product {
   return {
     id: row.id,
     storeId: row.store_id,
@@ -34,7 +41,7 @@ export async function fetchAllProducts(params: ProductListParams): Promise<PageR
   // ملاحظة: جدول products لا يحتوي deleted_at (الحذف نهائي مباشرة)
   let query = supabase
     .from('products')
-    .select()
+    .select(PRODUCT_SELECT)
     .order('created_at', { ascending: false });
 
   if (search?.trim()) {
@@ -59,7 +66,7 @@ export async function fetchAllProducts(params: ProductListParams): Promise<PageR
 export async function fetchProductsByStore(storeId: string, limit = 100): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products')
-    .select()
+    .select(PRODUCT_SELECT)
     .eq('store_id', storeId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -70,7 +77,7 @@ export async function fetchProductsByStore(storeId: string, limit = 100): Promis
 export async function fetchProductsByBranch(branchId: string, limit = 100): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products')
-    .select()
+    .select(PRODUCT_SELECT)
     .eq('branch_id', branchId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -79,7 +86,7 @@ export async function fetchProductsByBranch(branchId: string, limit = 100): Prom
 }
 
 export async function fetchProductById(id: string): Promise<Product | null> {
-  const { data, error } = await supabase.from('products').select().eq('id', id).single();
+  const { data, error } = await supabase.from('products').select(PRODUCT_SELECT).eq('id', id).single();
   if (error || !data) return null;
   return mapProduct(data);
 }
@@ -91,6 +98,40 @@ export async function countProductsByStore(storeId: string): Promise<number> {
     .eq('store_id', storeId);
   if (error) return 0;
   return count ?? 0;
+}
+
+/** عدد المنتجات الكلي (بعد فلاتر اختيارية مطابقة لفلتر القائمة). كاش قصير 60 ثانية. */
+export async function countAllProducts(filter?: {
+  search?: string;
+  storeIds?: string[];
+  storeId?: string;
+  branchId?: string;
+}): Promise<number> {
+  const search = filter?.search ?? '';
+  const storeIds = filter?.storeIds ?? [];
+  const storeId = filter?.storeId ?? '';
+  const branchId = filter?.branchId ?? '';
+  const key = `count:${cacheKey(
+    'products',
+    `all:q:${search}:sids:${[...storeIds].sort().join(',')}:sid:${storeId}:bid:${branchId}`,
+  )}`;
+  const cached = cacheGet<{ at: number; value: number }>(key);
+  const now = Date.now();
+  if (cached && now - cached.at < COUNT_TTL_MS) return cached.value;
+  let query = supabase.from('products').select('id', { count: 'exact', head: true });
+  if (search.trim()) query = query.ilike('name', `%${search.trim()}%`);
+  if (storeId.trim()) query = query.eq('store_id', storeId);
+  if (branchId.trim()) query = query.eq('branch_id', branchId);
+  if (storeIds.length > 0) query = query.in('store_id', storeIds);
+  const { count, error } = await query;
+  if (error) return cached?.value ?? 0;
+  const value = count ?? 0;
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: now, value }));
+  } catch {
+    // التخزين ممتلئ أو غير متاح — تجاهل
+  }
+  return value;
 }
 
 export interface ProductInput {
@@ -118,7 +159,7 @@ export async function createProduct(input: ProductInput, createdBy: string): Pro
     is_best_seller: input.isBestSeller,
     created_by: createdBy,
   };
-  const { data, error } = await supabase.from('products').insert(row).select().single();
+  const { data, error } = await supabase.from('products').insert(row).select(PRODUCT_SELECT).single();
   if (error) throw translateError(error);
   cacheBump('products');
   return mapProduct(data);
@@ -137,7 +178,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
     is_best_seller: input.isBestSeller,
     updated_at: new Date().toISOString(),
   };
-  const { data, error } = await supabase.from('products').update(row).eq('id', id).select().single();
+  const { data, error } = await supabase.from('products').update(row).eq('id', id).select(PRODUCT_SELECT).single();
   if (error) throw translateError(error);
   cacheBump('products');
   return mapProduct(data);

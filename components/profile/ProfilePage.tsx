@@ -1,19 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useProfile } from '@/components/ProfileContext';
 import { useRouter } from '@/components/RouterContext';
 import { signOut } from '@/lib/supabase';
 import { updateProfileName, changePasswordForm } from '@/lib/data/profiles';
+import { countAllStores } from '@/lib/data/stores';
+import { countAllProducts } from '@/lib/data/products';
 import { roleLabels } from '@/lib/constants';
 import { nameValidator } from '@/lib/utils';
 import { toastError, toastSuccess } from '@/lib/toast';
-import { Avatar, Button, Chip, PageHeader, Toggle } from '@/components/ui/controls';
+import { Avatar, Button, Chip, PageHeader, StatCard, Toggle } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
 import { TextField } from '@/components/ui/fields';
 import { useTheme } from '@/components/ThemeProvider';
 import { useInstall, isStandalone } from '@/components/pwa/useInstall';
-import { LogOut, Pencil, Shield, User as UserIcon, Download, Smartphone, HardDriveDownload } from 'lucide-react';
+import { LogOut, Pencil, Shield, Store, Package, User as UserIcon, Download, Smartphone, HardDriveDownload } from 'lucide-react';
+
+function subscribeDisplayMode(onChange: () => void): () => void {
+  const mq = window.matchMedia('(display-mode: standalone)');
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+
+/** معرفات متاجر التاجر — للحد من عدّاد منتجاته بمتاجره فقط */
+async function fetchOwnStoreIds(profileId: string): Promise<string[]> {
+  const { fetchStores } = await import('@/lib/data/stores');
+  const res = await fetchStores({ page: 0, pageSize: 200, createdBy: profileId });
+  return res.items.map((s) => s.id);
+}
 
 export default function ProfilePage() {
   const profile = useProfile();
@@ -32,16 +47,37 @@ export default function ProfilePage() {
   const [pwError, setPwError] = useState<string | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const { canInstall, install } = useInstall();
-  const [standalone, setStandalone] = useState(false);
+  const standalone = useSyncExternalStore(subscribeDisplayMode, isStandalone, () => false);
+  const isManager = profile.role === 'manager';
+  const isMerchant = profile.role === 'merchant';
 
+  // الإجماليات الكلية للمتاجر والمنتجات — للمدير الكل، وللتاجر متاجره فقط
+  const [totals, setTotals] = useState<{ stores: number | null; products: number | null }>({ stores: null, products: null });
   useEffect(() => {
-    setStandalone(isStandalone());
-  }, []);
+    let cancelled = false;
+    (async () => {
+      try {
+        const [s, p] = await Promise.all([
+          countAllStores({ createdBy: isMerchant ? profile.id : undefined }),
+          countAllProducts({ storeIds: isMerchant ? await fetchOwnStoreIds(profile.id) : undefined }),
+        ]);
+        if (cancelled) return;
+        setTotals({ stores: s, products: p });
+      } catch {
+        if (!cancelled) setTotals({ stores: null, products: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isMerchant, profile.id]);
 
   // تزامن العرض مع البروفايل القادم من السياق (بعد الحفظ أو التعديل من صفحة الحسابات)
-  useEffect(() => {
+  const [syncedName, setSyncedName] = useState(profile.fullName);
+  if (syncedName !== profile.fullName) {
+    setSyncedName(profile.fullName);
     setDisplayName(profile.fullName);
-  }, [profile.fullName]);
+  }
 
   const openNameEditor = () => {
     setName(profile.fullName);
@@ -66,7 +102,7 @@ export default function ProfilePage() {
       setDisplayName(trimmed);
       setEditName(false);
       toastSuccess('تم تحديث الاسم');
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر تحديث الاسم');
     } finally {
       setSavingName(false);
@@ -90,7 +126,7 @@ export default function ProfilePage() {
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (e: any) {
+    } catch (e) {
       setPwError(typeof e === 'string' ? e : 'تعذر تغيير كلمة المرور');
     } finally {
       setSavingPw(false);
@@ -134,6 +170,12 @@ export default function ProfilePage() {
           تم تعطيل حسابك من قبل الإدارة. لن تتمكن من إجراء أي تعديلات.
         </div>
       )}
+
+      <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">إحصائيات عامة</h3>
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <StatCard label="المتاجر الكلي" value={totals.stores ?? '…'} icon={<Store className="w-4 h-4" />} tint="accent" />
+        <StatCard label="المنتجات الكلي" value={totals.products ?? '…'} icon={<Package className="w-4 h-4" />} tint="purple" />
+      </div>
 
       <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">المظهر</h3>
       <div className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 mb-6">

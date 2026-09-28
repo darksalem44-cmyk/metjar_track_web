@@ -49,24 +49,94 @@ export function normalizeImagePath(value?: string | null): string {
   return value;
 }
 
+function isDirect(path: string): boolean {
+  return path.startsWith('http') || path.startsWith('blob:');
+}
+
 export async function resolveImageUrl(value?: string | null): Promise<string> {
   const path = normalizeImagePath(value);
   if (!path) return '';
-  if (path.startsWith('http') || path.startsWith('blob:')) return path;
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-  if (error || !data) return '';
-  return data.signedUrl;
+  if (isDirect(path)) return path;
+  return queueSigning(path);
 }
 
-export async function resolveImageUrls(paths: string[]): Promise<string[]> {
-  const cleaned = paths.filter(Boolean);
-  if (cleaned.length === 0) return [];
-  return Promise.all(cleaned.map((p) => resolveImageUrl(p)));
+const SIGN_TTL_SECONDS = 3600;
+const SIGN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
+const SIGN_CHUNK = 50;
+
+const signedCache = new Map<string, { url: string; validUntil: number }>();
+const signQueue = new Map<string, Set<(url: string) => void>>();
+let signFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function freshSignedUrl(path: string): string | null {
+  const hit = signedCache.get(path);
+  if (!hit || hit.validUntil <= Date.now()) {
+    signedCache.delete(path);
+    return null;
+  }
+  return hit.url;
+}
+
+async function signChunk(paths: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (paths.length === 0) return out;
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrls(paths, SIGN_TTL_SECONDS);
+  if (error || !data) return out;
+  const validUntil = Date.now() + SIGN_TTL_SECONDS * 1000 - SIGN_REFRESH_MARGIN_MS;
+  data.forEach((row, i) => {
+    const path = (row as { path?: string }).path ?? paths[i];
+    if (row.signedUrl && path) {
+      signedCache.set(path, { url: row.signedUrl, validUntil });
+      out.set(path, row.signedUrl);
+    }
+  });
+  return out;
+}
+
+/** يوقّع دفعة مسارات: من الكاش أولاً ثم بطلب واحد لكل مجموعة ناقصة. */
+export async function signPaths(paths: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(paths.filter(Boolean))];
+  const out = new Map<string, string>();
+  const missing: string[] = [];
+  for (const path of unique) {
+    const hit = freshSignedUrl(path);
+    if (hit) out.set(path, hit);
+    else missing.push(path);
+  }
+  for (let i = 0; i < missing.length; i += SIGN_CHUNK) {
+    const fresh = await signChunk(missing.slice(i, i + SIGN_CHUNK));
+    fresh.forEach((url, path) => out.set(path, url));
+  }
+  return out;
+}
+
+/** يجمع كل الطلبات الواردة في نفس الدورة في طلب توقيع واحد. */
+function queueSigning(path: string): Promise<string> {
+  const hit = freshSignedUrl(path);
+  if (hit) return Promise.resolve(hit);
+  return new Promise((resolve) => {
+    const waiters = signQueue.get(path) ?? new Set();
+    waiters.add(resolve);
+    signQueue.set(path, waiters);
+    if (!signFlushTimer) signFlushTimer = setTimeout(flushSigning, 0);
+  });
+}
+
+async function flushSigning(): Promise<void> {
+  signFlushTimer = null;
+  const entries = [...signQueue.entries()];
+  signQueue.clear();
+  const missing = entries.map(([path]) => path).filter((p) => !freshSignedUrl(p));
+  const signed = await signPaths(missing);
+  for (const [path, waiters] of entries) {
+    const url = signed.get(path) ?? freshSignedUrl(path) ?? path;
+    for (const resolve of waiters) resolve(url);
+  }
 }
 
 /** يبني مساراً فريداً لصورة داخل مجلد محدد. */
 export function buildImagePath(folder: string, ext: string): string {
-  const random = Math.random().toString(36).slice(2, 12);
+  const random = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
   const sanitizedExt = ext.startsWith('.') ? ext : `.${ext}`;
   return `${folder}${Date.now()}_${random}${sanitizedExt}`;
 }

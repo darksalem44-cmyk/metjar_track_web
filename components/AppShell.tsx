@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { RouterProvider, useRouter, type View } from '@/components/RouterContext';
 import { ProfileProvider, useProfile } from '@/components/ProfileContext';
 import { signOut } from '@/lib/supabase';
@@ -25,26 +25,33 @@ import {
   HardDriveDownload,
 } from 'lucide-react';
 import { AlertsBell, AlertsProvider, useAlerts } from '@/components/notifications/AlertsProvider';
-import AlertsPage from '@/components/notifications/AlertsPage';
-import AlertsArchivePage from '@/components/notifications/AlertsArchivePage';
-import HomePage from '@/components/HomePage';
-import StoresList from '@/components/stores/StoresList';
-import StoreForm from '@/components/stores/StoreForm';
-import StoreDetails from '@/components/stores/StoreDetails';
-import StoreQrPage from '@/components/stores/StoreQrPage';
-import BranchesPage from '@/components/branches/BranchesPage';
-import BranchForm from '@/components/branches/BranchForm';
-import BranchDetails from '@/components/branches/BranchDetails';
-import ProductsPage from '@/components/products/ProductsPage';
-import ProductForm from '@/components/products/ProductForm';
-import ProductDetails from '@/components/products/ProductDetails';
-import AccountListPage from '@/components/accounts/AccountListPage';
-import AdminAccountsPage from '@/components/accounts/AdminAccountsPage';
-import ActivitiesList from '@/components/activities/ActivitiesList';
-import ActivityTrendsPage from '@/components/activities/ActivityTrendsPage';
-import UserReport from '@/components/activities/UserReport';
-import ProfilePage from '@/components/profile/ProfilePage';
-import BackupPage from '@/components/backup/BackupPage';
+import { canAccessView } from '@/lib/permissions';
+import dynamic from 'next/dynamic';
+
+function ScreenFallback() {
+  return <div className="py-16 text-center text-[12px] text-[var(--text-secondary)]">جاري تحميل الشاشة...</div>;
+}
+
+const AlertsPage = dynamic(() => import('@/components/notifications/AlertsPage'), { ssr: false, loading: () => <ScreenFallback /> });
+const AlertsArchivePage = dynamic(() => import('@/components/notifications/AlertsArchivePage'), { ssr: false, loading: () => <ScreenFallback /> });
+const HomePage = dynamic(() => import('@/components/HomePage'), { ssr: false, loading: () => <ScreenFallback /> });
+const StoresList = dynamic(() => import('@/components/stores/StoresList'), { ssr: false, loading: () => <ScreenFallback /> });
+const StoreForm = dynamic(() => import('@/components/stores/StoreForm'), { ssr: false, loading: () => <ScreenFallback /> });
+const StoreDetails = dynamic(() => import('@/components/stores/StoreDetails'), { ssr: false, loading: () => <ScreenFallback /> });
+const StoreQrPage = dynamic(() => import('@/components/stores/StoreQrPage'), { ssr: false, loading: () => <ScreenFallback /> });
+const BranchesPage = dynamic(() => import('@/components/branches/BranchesPage'), { ssr: false, loading: () => <ScreenFallback /> });
+const BranchForm = dynamic(() => import('@/components/branches/BranchForm'), { ssr: false, loading: () => <ScreenFallback /> });
+const BranchDetails = dynamic(() => import('@/components/branches/BranchDetails'), { ssr: false, loading: () => <ScreenFallback /> });
+const ProductsPage = dynamic(() => import('@/components/products/ProductsPage'), { ssr: false, loading: () => <ScreenFallback /> });
+const ProductForm = dynamic(() => import('@/components/products/ProductForm'), { ssr: false, loading: () => <ScreenFallback /> });
+const ProductDetails = dynamic(() => import('@/components/products/ProductDetails'), { ssr: false, loading: () => <ScreenFallback /> });
+const AccountListPage = dynamic(() => import('@/components/accounts/AccountListPage'), { ssr: false, loading: () => <ScreenFallback /> });
+const AdminAccountsPage = dynamic(() => import('@/components/accounts/AdminAccountsPage'), { ssr: false, loading: () => <ScreenFallback /> });
+const ActivitiesList = dynamic(() => import('@/components/activities/ActivitiesList'), { ssr: false, loading: () => <ScreenFallback /> });
+const ActivityTrendsPage = dynamic(() => import('@/components/activities/ActivityTrendsPage'), { ssr: false, loading: () => <ScreenFallback /> });
+const UserReport = dynamic(() => import('@/components/activities/UserReport'), { ssr: false, loading: () => <ScreenFallback /> });
+const ProfilePage = dynamic(() => import('@/components/profile/ProfilePage'), { ssr: false, loading: () => <ScreenFallback /> });
+const BackupPage = dynamic(() => import('@/components/backup/BackupPage'), { ssr: false, loading: () => <ScreenFallback /> });
 
 export default function AppShell({ profile }: { profile: Profile }) {
   return (
@@ -61,16 +68,12 @@ export default function AppShell({ profile }: { profile: Profile }) {
 function ShellInner() {
   const profile = useProfile();
   const router = useRouter();
-  const theme = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const view = router.stack[router.stack.length - 1];
 
-  useEffect(() => {
-    setDrawerOpen(false);
-  }, [view]);
-
   const go = (v: View) => {
+    setDrawerOpen(false);
     router.reset(v);
   };
 
@@ -93,9 +96,9 @@ function ShellInner() {
       )}
 
       <div className="lg:pr-[264px]">
-        <MobileHeader profile={profile} onMenu={() => setDrawerOpen(true)} />
+        <MobileHeader onMenu={() => setDrawerOpen(true)} />
         <main className="px-4 py-4 lg:px-8 lg:py-6 pb-24 lg:pb-8">
-          <div key={view.name + JSON.stringify(viewIndex(view))}>
+          <div key={view.name + viewIndex(view)}>
             <ViewRenderer profile={profile} view={view} />
           </div>
         </main>
@@ -175,11 +178,9 @@ function activeKey(view: View): string | null {
     case 'product-details':
       return 'products';
     case 'merchants':
-    case 'merchant-form':
     case 'activities':
       return view.name === 'activities' ? 'activities' : 'merchants';
     case 'employees':
-    case 'employee-form':
       return 'employees';
     case 'accounts':
       return 'accounts';
@@ -294,7 +295,7 @@ function SidebarContent({
   );
 }
 
-function MobileHeader({ profile, onMenu }: { profile: Profile; onMenu: () => void }) {
+function MobileHeader({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
   return (
     <header className="lg:hidden sticky top-0 z-50 flex items-center gap-3 px-4 h-14 border-b border-[var(--border)] bg-[var(--surface)]">
@@ -341,6 +342,14 @@ function MobileTabBar({ view, go }: { view: View; go: (v: View) => void }) {
 }
 
 function ViewRenderer({ profile, view }: { profile: Profile; view: View }) {
+  if (!canAccessView(profile, view)) {
+    return (
+      <div className="mx-auto max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
+        <p className="text-[14px] font-bold text-[var(--text)]">لا تملك صلاحية الوصول إلى هذه الشاشة</p>
+        <p className="text-[12px] text-[var(--text-secondary)] mt-1">تواصل مع المدير إذا كنت تحتاج هذه الصفحة.</p>
+      </div>
+    );
+  }
   switch (view.name) {
     case 'home':
       return <HomePage profile={profile} />;
@@ -365,10 +374,8 @@ function ViewRenderer({ profile, view }: { profile: Profile; view: View }) {
     case 'product-details':
       return <ProductDetails productId={view.productId} />;
     case 'employees':
-    case 'employee-form':
       return <AccountListPage role="employee" />;
     case 'merchants':
-    case 'merchant-form':
       return <AccountListPage role="merchant" />;
     case 'accounts':
       return <AdminAccountsPage />;

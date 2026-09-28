@@ -1,15 +1,25 @@
 ﻿import { supabase } from '@/lib/supabase';
-import type { Store, Profile } from '@/lib/types';
+import type { Store, Profile, CustomFields } from '@/lib/types';
 import { translateError } from '@/lib/constants';
-import { resolvePage, type PageParams, type PageResult } from './base';
-import { cacheBump } from '@/lib/cache';
+import { resolvePage, type Row, type PageParams, type PageResult } from './base';
+import { cacheBump, cacheKey, cacheGet } from '@/lib/cache';
+import { canDelete, canEdit } from '@/lib/permissions';
+
+/** مدة صلاحية عدّاد الإجمالي الكلي داخل التخزين المحلي قبل إعادة حسابه (60 ثانية). */
+const COUNT_TTL_MS = 60 * 1000;
 
 export interface StoreListParams extends PageParams {
   search?: string;
   createdBy?: string;
 }
 
-function mapStore(row: any): Store {
+/** الأعمدة التي يقرؤها mapStore — بدل سحب كل أعمدة الجدول في كل صفحة. */
+const STORE_SELECT =
+  'id, name, category, phone, latitude, longitude, address, open_at, close_at, notes, is_branch, commercial_register, ' +
+  'cover_image_urls, signage_image_url, created_by, created_at, updated_at, is_main_branch, shamcash_wallet_id, ' +
+  'shamcash_qr_image_url, paymera_wallet_id, paymera_qr_image_url, user_latitude, user_longitude, actual_distance, custom_fields';
+
+function mapStore(row: Row): Store {
   return {
     id: row.id,
     name: row.name,
@@ -44,7 +54,7 @@ export async function fetchStores(params: StoreListParams): Promise<PageResult<S
   const { page, pageSize, search, createdBy } = params;
   let query = supabase
     .from('stores')
-    .select()
+    .select(STORE_SELECT)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
@@ -61,8 +71,30 @@ export async function fetchStores(params: StoreListParams): Promise<PageResult<S
   return resolvePage((data ?? []).map(mapStore), page, pageSize);
 }
 
+/** عدد المتاجر الكلي (بعد فلاتر اختيارية). كاش قصير 60 ثانية لأن العدّاد لا يحتاج لحظية تامة. */
+export async function countAllStores(filter?: { search?: string; createdBy?: string }): Promise<number> {
+  const search = filter?.search ?? '';
+  const createdBy = filter?.createdBy ?? '';
+  const key = `count:${cacheKey('stores', `all:${createdBy ? `u:${createdBy}` : 'all'}:q:${search}`)}`;
+  const cached = cacheGet<{ at: number; value: number }>(key);
+  const now = Date.now();
+  if (cached && now - cached.at < COUNT_TTL_MS) return cached.value;
+  let query = supabase.from('stores').select('id', { count: 'exact', head: true }).is('deleted_at', null);
+  if (search.trim()) query = query.ilike('name', `%${search.trim()}%`);
+  if (createdBy.trim()) query = query.eq('created_by', createdBy);
+  const { count, error } = await query;
+  if (error) return cached?.value ?? 0;
+  const value = count ?? 0;
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: now, value }));
+  } catch {
+    // التخزين ممتلئ أو غير متاح — تجاهل
+  }
+  return value;
+}
+
 export async function fetchStoreById(id: string): Promise<Store | null> {
-  const { data, error } = await supabase.from('stores').select().eq('id', id).single();
+  const { data, error } = await supabase.from('stores').select(STORE_SELECT).eq('id', id).is('deleted_at', null).single();
   if (error || !data) return null;
   return mapStore(data);
 }
@@ -84,7 +116,7 @@ export interface StoreInput {
   shamcashQrImageUrl?: string;
   paymeraWalletId?: string;
   paymeraQrImageUrl?: string;
-  customFields: Record<string, any>;
+  customFields: CustomFields;
   userLatitude?: number;
   userLongitude?: number;
 }
@@ -113,7 +145,7 @@ export async function createStore(input: StoreInput, createdBy: string): Promise
     user_longitude: input.userLongitude ?? null,
     created_by: createdBy,
   };
-  const { data, error } = await supabase.from('stores').insert(row).select().single();
+  const { data, error } = await supabase.from('stores').insert(row).select(STORE_SELECT).single();
   if (error) throw translateError(error);
   cacheBump('stores');
   return mapStore(data);
@@ -142,7 +174,7 @@ export async function updateStore(id: string, input: StoreInput): Promise<Store>
     user_longitude: input.userLongitude ?? null,
     updated_at: new Date().toISOString(),
   };
-  const { data, error } = await supabase.from('stores').update(row).eq('id', id).select().single();
+  const { data, error } = await supabase.from('stores').update(row).eq('id', id).select(STORE_SELECT).single();
   if (error) throw translateError(error);
   cacheBump('stores');
   return mapStore(data);
@@ -172,9 +204,9 @@ export async function getCreatorNames(ids: string[]): Promise<Record<string, str
 }
 
 export function canEditStore(profile: Profile): boolean {
-  return profile.role === 'manager' || profile.canEdit;
+  return canEdit(profile);
 }
 
 export function canDeleteStore(profile: Profile): boolean {
-  return profile.role === 'manager' || profile.canDelete;
+  return canDelete(profile);
 }

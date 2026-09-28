@@ -24,11 +24,10 @@ function resolveInitial(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('light');
+  const [theme, setThemeState] = useState<Theme>(resolveInitial);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setThemeState(resolveInitial());
     setReady(true);
   }, []);
 

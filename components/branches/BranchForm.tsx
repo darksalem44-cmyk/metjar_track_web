@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import { useProfile } from '@/components/ProfileContext';
 import { createBranch, updateBranch, fetchBranchById, generateBranchCode } from '@/lib/data/branches';
+import { canEdit } from '@/lib/permissions';
 import { deleteImageObjects, filterStoredPaths } from '@/lib/supabase';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Button, Toggle, CenteredSpinner } from '@/components/ui/controls';
@@ -24,7 +25,7 @@ export default function BranchForm({ storeId, branchId }: { storeId: string; bra
   const router = useRouter();
   const profile = useProfile();
   const isEdit = !!branchId;
-  const editable = profile.role === 'manager' || !!profile.canEdit;
+  const editable = canEdit(profile);
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -164,7 +165,7 @@ export default function BranchForm({ storeId, branchId }: { storeId: string; bra
         toastSuccess('تم إضافة الفرع بنجاح');
         router.replace({ name: 'branch-details', storeId, branchId: created.id });
       }
-    } catch (err: any) {
+    } catch (err) {
       toastError(typeof err === 'string' ? err : 'تعذر حفظ الفرع');
     } finally {
       setSaving(false);

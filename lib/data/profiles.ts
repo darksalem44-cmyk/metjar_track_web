@@ -2,11 +2,15 @@ import { supabase } from '@/lib/supabase';
 import type { Profile, UserRole } from '@/lib/types';
 import { translateError } from '@/lib/constants';
 import { cacheBump } from '@/lib/cache';
+import type { Row } from './base';
+
+/** الأعمدة التي يقرؤها mapProfile. */
+const PROFILE_SELECT = 'id, email, full_name, role, can_edit, can_delete, is_active, created_at';
 
 export async function getProfile(id: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(PROFILE_SELECT)
     .eq('id', id)
     .single();
   if (error) return null;
@@ -16,7 +20,7 @@ export async function getProfile(id: string): Promise<Profile | null> {
 export async function getProfileByEmail(email: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(PROFILE_SELECT)
     .eq('email', email)
     .single();
   if (error) return null;
@@ -61,7 +65,7 @@ export async function ensureProfileRow(
   }
 }
 
-function mapProfile(row: any): Profile {
+function mapProfile(row: Row): Profile {
   return {
     id: row.id,
     email: row.email,
@@ -116,9 +120,18 @@ export async function changePasswordWithRecovery(newPassword: string): Promise<v
 // Realtime على ملف المستخدم (لسماع تعطيل الحساب أو تعديل الصلاحيات)
 let profileChannelSeq = 0;
 
+/** الصف كما يصل من قناة realtime على جدول profiles (أسماء الأعمدة المخزّنة). */
+export interface ProfileRow {
+  id: string;
+  full_name?: string | null;
+  can_edit?: boolean | null;
+  can_delete?: boolean | null;
+  is_active?: boolean | null;
+}
+
 export function subscribeProfile(
   userId: string,
-  onUpdate: (profile: any) => void,
+  onUpdate: (profile: ProfileRow) => void,
 ) {
   // اسم فريد لكل اشتراك: في بيئة التطوير يعيد React StrictMode تشغيل الـ
   // effect قبل اكتمال إزالة القناة السابقة، وإعادة استخدام نفس الاسم تسبب
@@ -135,7 +148,7 @@ export function subscribeProfile(
         filter: `id=eq.${userId}`,
       },
       (payload) => {
-        onUpdate(payload.new as any);
+        onUpdate(payload.new as ProfileRow);
       },
     )
     .subscribe();

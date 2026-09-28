@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import type { Profile } from '@/lib/types';
 import { roleLabels } from '@/lib/constants';
+import { countAllStores } from '@/lib/data/stores';
+import { countAllProducts } from '@/lib/data/products';
 import {
   Store,
   Plus,
@@ -15,7 +17,6 @@ import {
   ShoppingBag,
   KeyRound,
   BarChart3,
-  X,
 } from 'lucide-react';
 import { Avatar, Chip } from '@/components/ui/controls';
 import { Modal } from '@/components/ui/modals';
@@ -25,6 +26,28 @@ export default function HomePage({ profile }: { profile: Profile }) {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const isManager = profile.role === 'manager';
+  const isMerchant = profile.role === 'merchant';
+
+  // الإجماليات الكلية للمتاجر والمنتجات — تُعرض في صفحة الترحيب للجميع
+  const [totals, setTotals] = useState<{ stores: number | null; products: number | null }>({ stores: null, products: null });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [s, p] = await Promise.all([
+          countAllStores({ createdBy: isMerchant ? profile.id : undefined }),
+          countAllProducts({ storeIds: isMerchant ? await fetchOwnStoreIds(profile.id) : undefined }),
+        ]);
+        if (cancelled) return;
+        setTotals({ stores: s, products: p });
+      } catch {
+        if (!cancelled) setTotals({ stores: null, products: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isManager, isMerchant, profile.id]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -32,8 +55,10 @@ export default function HomePage({ profile }: { profile: Profile }) {
         <Avatar name={profile.fullName} size={52} />
         <div className="min-w-0">
           <h1 className="text-[18px] font-bold text-[var(--text)]">مرحباً، {profile.fullName}</h1>
-          <div className="mt-1">
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
             <Chip tone="primary" label={roleLabels[profile.role]} />
+            {totals.stores !== null && <Chip tone="accent" label={`المتاجر: ${totals.stores}`} />}
+            {totals.products !== null && <Chip tone="purple" label={`المنتجات: ${totals.products}`} />}
           </div>
         </div>
       </div>
@@ -180,6 +205,13 @@ export default function HomePage({ profile }: { profile: Profile }) {
       )}
     </div>
   );
+}
+
+/** معرفات متاجر التاجر — للحد من عدّاد منتجاته بمتاجره فقط */
+async function fetchOwnStoreIds(profileId: string): Promise<string[]> {
+  const { fetchStores } = await import('@/lib/data/stores');
+  const res = await fetchStores({ page: 0, pageSize: 200, createdBy: profileId });
+  return res.items.map((s) => s.id);
 }
 
 function QuickCard({

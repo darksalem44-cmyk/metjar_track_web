@@ -12,10 +12,7 @@ export default function InstallPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!canInstall) {
-      setVisible(false);
-      return;
-    }
+    if (!canInstall) return;
     if (localStorage.getItem(DISMISS_KEY) === '1') return;
     if (isStandalone()) return;
 

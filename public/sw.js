@@ -1,6 +1,6 @@
 // عامل خدمة متجر تراك — تخزين مؤقت للقشرة (app shell) حتى يعمل التطبيق بدون إنترنت
 // ملاحظة: عند كل نشر، عُدّل رقم نسخة الـ CACHE ليُحذف الكاش القديم تلقائياً أثناء activate.
-const CACHE = 'metjar-track-v4';
+const CACHE = 'metjar-track-v5';
 const PRECACHE = ['/'];
 
 self.addEventListener('install', (event) => {
@@ -79,8 +79,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put('/', copy)).catch(() => {});
+          // لا تُخزَّن صفحات الخطأ/التحويلات مكان القشرة، وإلا ظل التطبيق يعرضها offline
+          if (res && res.ok && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(CACHE).then((cache) => cache.put('/', copy)).catch(() => {});
+          }
           return res;
         })
         .catch(() => caches.match('/').then((r) => r ?? caches.match(req))),

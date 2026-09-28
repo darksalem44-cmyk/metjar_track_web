@@ -19,9 +19,7 @@ export type View =
   | { name: 'product-form'; storeId: string; productId?: string }
   | { name: 'product-details'; productId: string }
   | { name: 'employees' }
-  | { name: 'employee-form' }
   | { name: 'merchants' }
-  | { name: 'merchant-form' }
   | { name: 'accounts' }
   | { name: 'activities'; type: 'merchants' | 'employees' }
   | { name: 'user-report'; actorId: string; role: ActivityActorRole; actorName?: string; actorEmail?: string }
@@ -85,10 +83,8 @@ export function viewToPath(view: View): string {
     case 'product-details':
       return `/products/${view.productId}`;
     case 'employees':
-    case 'employee-form':
       return '/employees';
     case 'merchants':
-    case 'merchant-form':
       return '/merchants';
     case 'accounts':
       return '/accounts';
@@ -186,6 +182,37 @@ export function pathToView(pathname: string, search: string): View | null {
 
 const HISTORY_KEY = 'mtStack';
 
+export function parentView(view: View): View | null {
+  switch (view.name) {
+    case 'store-details':
+    case 'store-qr':
+    case 'store-form':
+    case 'branches':
+      return { name: 'stores-list' };
+    case 'branch-form':
+    case 'branch-details':
+      return { name: 'branches', storeId: view.storeId };
+    case 'products':
+      if (view.scope.type === 'store') return { name: 'store-details', storeId: view.scope.storeId };
+      if (view.scope.type === 'branch')
+        return { name: 'branch-details', storeId: view.scope.storeId, branchId: view.scope.branchId };
+      return null;
+    case 'product-form':
+      return view.storeId ? { name: 'store-details', storeId: view.storeId } : { name: 'products', scope: { type: 'all' } };
+    case 'product-details':
+      return { name: 'products', scope: { type: 'all' } };
+    case 'user-report':
+      return { name: 'activities', type: view.role === 'employee' ? 'employees' : 'merchants' };
+    case 'alerts':
+    case 'alerts-archive':
+      return { name: 'home' };
+    case 'activity-trends':
+      return { name: 'home' };
+    default:
+      return null;
+  }
+}
+
 export function RouterProvider({ initial, children }: { initial: View; children: React.ReactNode }) {
   const [stack, setStack] = useState<View[]>(() => {
     if (typeof window === 'undefined') return [initial];
@@ -210,8 +237,18 @@ export function RouterProvider({ initial, children }: { initial: View; children:
 
   const pop = useCallback(() => {
     // زر الرجوع في التطبيق = زر الرجوع في المتصفح (يعيد كامل المكدس السابق)
-    if (stackRef.current.length > 1) window.history.back();
-  }, []);
+    const current = stackRef.current;
+    if (current.length > 1) {
+      window.history.back();
+      return;
+    }
+    // مكدس من عنصر واحد (فتح مباشر أو تحديث صفحة): انزل إلى الشاشة الأب
+    const parent = parentView(current[current.length - 1]);
+    if (!parent) return;
+    const next = [parent];
+    apply(next);
+    window.history.replaceState({ [HISTORY_KEY]: next }, '', viewToPath(parent));
+  }, [apply]);
 
   const replace = useCallback(
     (view: View) => {
@@ -234,7 +271,9 @@ export function RouterProvider({ initial, children }: { initial: View; children:
 
   useEffect(() => {
     // وسّم الإدخال الحالي بحالة المكدس حتى يجد زر الرجوع/التقدم الحالة دائماً
-    if (!window.history.state?.[HISTORY_KEY]) {
+    if (!pathToView(window.location.pathname, window.location.search)) {
+      window.history.replaceState({ [HISTORY_KEY]: stackRef.current }, '', viewToPath({ name: 'home' }));
+    } else if (!window.history.state?.[HISTORY_KEY]) {
       window.history.replaceState({ [HISTORY_KEY]: stackRef.current }, '');
     }
 

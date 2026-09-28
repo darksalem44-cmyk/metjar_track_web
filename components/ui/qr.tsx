@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useId } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Download, Share2 } from 'lucide-react';
 import { Button, Chip } from './controls';
 import { CopyButton } from './accountUtils';
-import { toastError } from '@/lib/toast';
+import { toast, toastError } from '@/lib/toast';
 
 export function qrUrlFromCommercialRegister(commercialRegister?: string): string {
   if (!commercialRegister) return '';
@@ -19,10 +19,10 @@ export function QrDisplay({
   url: string;
   withActions?: boolean;
 }) {
-  const encoded = useMemo(() => url, [url]);
+  const svgId = useId();
 
   const download = () => {
-    const svg = document.getElementById('store-qr-svg');
+    const svg = document.getElementById(svgId);
     if (!svg) return;
     const serializer = new XMLSerializer();
     const source = serializer.serializeToString(svg);
@@ -45,7 +45,7 @@ export function QrDisplay({
     }
     try {
       await navigator.clipboard.writeText(url);
-      toastError('تم نسخ الرابط');
+      toast('تم نسخ الرابط');
     } catch {
       toastError('تعذر المشاركة');
     }
@@ -54,19 +54,7 @@ export function QrDisplay({
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="w-[200px] h-[200px] p-3 bg-white rounded-2xl border border-[var(--border)]">
-        <QRCodeSVG
-          id="store-qr-svg"
-          value={encoded}
-          size={176}
-          marginSize={1}
-          level="L"
-          imageSettings={{
-            src: '',
-            height: 36,
-            width: 36,
-            excavate: false,
-          }}
-        />
+        <QRCodeSVG id={svgId} value={url} size={176} marginSize={1} level="L" />
       </div>
       <Chip tone="neutral" label="رمز الاستجابة السريعة لمتجرك" />
       {withActions && (

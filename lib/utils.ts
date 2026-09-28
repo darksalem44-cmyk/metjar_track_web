@@ -133,23 +133,33 @@ export function userValidator(fullName?: string | null, email?: string | null): 
 
 // ─────────────── Misc helpers ───────────────
 
+function randomInt(max: number): number {
+  const limit = Math.floor(0xffffffff / max) * max;
+  const buf = new Uint32Array(1);
+  let value = 0;
+  do {
+    crypto.getRandomValues(buf);
+    value = buf[0];
+  } while (value >= limit);
+  return value % max;
+}
+
+function pickFrom(list: string): string {
+  return list[randomInt(list.length)];
+}
+
 export function generatePassword(length = 12): string {
   const lowercase = 'abcdefghjkmnpqrstuvwxyz';
   const uppercase = 'ABCDEFGHJKMNPQRSTUVWXYZ';
   const digits = '23456789';
   const special = '!@#$%&*';
   const all = lowercase + uppercase + digits + special;
-  const chars = [
-    uppercase[Math.floor(Math.random() * uppercase.length)],
-    lowercase[Math.floor(Math.random() * lowercase.length)],
-    digits[Math.floor(Math.random() * digits.length)],
-    special[Math.floor(Math.random() * special.length)],
-  ];
+  const chars = [pickFrom(uppercase), pickFrom(lowercase), pickFrom(digits), pickFrom(special)];
   while (chars.length < length) {
-    chars.push(all[Math.floor(Math.random() * all.length)]);
+    chars.push(pickFrom(all));
   }
   for (let i = chars.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randomInt(i + 1);
     [chars[i], chars[j]] = [chars[j], chars[i]];
   }
   return chars.join('');

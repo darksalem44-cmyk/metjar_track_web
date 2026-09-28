@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchAllAccounts, adminResetPassword, updateAccountDetails, promoteEmployeeToManager } from '@/lib/data/accounts';
-import type { ActorWithProfile, UserRole } from '@/lib/types';
+import type { ActorWithProfile } from '@/lib/types';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { cacheKey, cachedLoad } from '@/lib/cache';
@@ -21,6 +21,7 @@ export default function AdminAccountsPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const aliveRef = useRef(true);
 
   // تدفق إعادة تعيين كلمة المرور: نموذج بحقلين (مثل تطبيق الموبايل)
   const [target, setTarget] = useState<ActorWithProfile | null>(null);
@@ -56,20 +57,26 @@ export default function AdminAccountsPage() {
           return all.filter((a) => a.role !== 'manager');
         },
         (rows) => {
+          if (!aliveRef.current) return;
           setAccounts(rows);
           // النسخة المخزنة تُعرض فوراً بلا سبينر، والشبكة تحدّث القائمة عند وصولها
           setLoading(false);
         },
       );
-    } catch (e: any) {
+    } catch (e) {
+      if (!aliveRef.current) return;
       toastError(typeof e === 'string' ? e : 'تعذر تحميل الحسابات');
     } finally {
-      setLoading(false);
+      if (aliveRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    aliveRef.current = true;
     load();
+    return () => {
+      aliveRef.current = false;
+    };
   }, [load]);
 
   const filtered = useMemo(() => {
@@ -142,7 +149,7 @@ export default function AdminAccountsPage() {
       await adminResetPassword(target.id, newPw);
       toastSuccess('تم تغيير كلمة مرور المستخدم بنجاح');
       closeReset();
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر إعادة تعيين كلمة المرور');
       setConfirmOpen(false);
     } finally {
@@ -187,7 +194,7 @@ export default function AdminAccountsPage() {
       toastSuccess('تم تحديث بيانات المستخدم');
       closeEdit();
       await load();
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر تحديث بيانات المستخدم');
     } finally {
       setEditSaving(false);
@@ -217,7 +224,7 @@ export default function AdminAccountsPage() {
       toastSuccess(`تمت ترقية ${promoteTarget.fullName} إلى مدير`);
       closePromote();
       await load();
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذرت عملية الترقية');
     } finally {
       setPromoting(false);

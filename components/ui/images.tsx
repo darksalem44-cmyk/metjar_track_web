@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { resolveImageUrl, uploadImageObject, buildImagePath, isStoredPath } from '@/lib/supabase';
-import { Image as ImageIcon, Plus, X, Loader2, Search } from 'lucide-react';
+import { Image as ImageIcon, Plus, X, Loader2 } from 'lucide-react';
 import { Modal } from './modals';
 
 function getExt(name: string): string {
@@ -29,7 +29,7 @@ export function ResolvedImage({
   if (!src || !resolved || failed) {
     return (
       <div className={cn('grid place-items-center bg-[var(--surface-variant)]', className)}>
-        {resolved === undefined ? (
+        {src && resolved === undefined && !failed ? (
           <Loader2 className="w-5 h-5 animate-spin text-[var(--text-muted)]" />
         ) : (
           <ImageIcon className="w-6 h-6 text-[var(--text-muted)]" />
@@ -129,15 +129,16 @@ export function ImagePicker({
       setUploading(true);
       try {
         const entries = Array.from(files);
-        const slots = max - value.length;
+        const next = [...value];
+        const slots = max - next.length;
         for (let i = 0; i < entries.length && i < slots; i++) {
           const file = entries[i];
           const path = buildImagePath(folder, getExt(file.name));
           const done = await uploadImageObject(path, file);
-          value.push(done);
+          next.push(done);
         }
-        onChange([...value]);
-      } catch (e: any) {
+        onChange(next);
+      } catch (e) {
         console.error(e);
       } finally {
         setUploading(false);
@@ -218,7 +219,7 @@ export function SingleImagePicker({
         const path = buildImagePath(folder, getExt(file.name));
         const done = await uploadImageObject(path, file);
         onChange(done);
-      } catch (e: any) {
+      } catch (e) {
         console.error(e);
       } finally {
         setUploading(false);

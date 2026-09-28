@@ -7,6 +7,12 @@ export type PeriodKey = 'today' | 'yesterday' | 'last7' | 'last30' | 'custom';
 export type AccountFilter = 'all' | 'active' | 'disabled' | 'withPermissions';
 export type AccountTypeFilter = 'merchant' | 'employee';
 
+/** قيم حقول يحدّدها المستخدم في نموذج المتجر/الفرع؛ تُكتب أيضاً من تطبيق الموبايل. */
+export type CustomFields = Record<string, string | number | boolean | null>;
+
+/** لقطة تفاصيل الحدث التي يكتبها مشغّل قاعدة البيانات في activity_events.details. */
+export type EventDetails = Record<string, unknown>;
+
 export interface Profile {
   id: string;
   email?: string;
@@ -44,7 +50,7 @@ export interface Store {
   userLatitude?: number;
   userLongitude?: number;
   actualDistance?: number;
-  customFields: Record<string, any>;
+  customFields: CustomFields;
   deletedAt?: string;
 }
 
@@ -69,7 +75,7 @@ export interface Branch {
   shamcashQrImageUrl?: string;
   paymeraWalletId?: string;
   paymeraQrImageUrl?: string;
-  customFields: Record<string, any>;
+  customFields: CustomFields;
   deletedAt?: string;
   createdBy: string;
   createdAt: string;
@@ -103,7 +109,7 @@ export interface ActivityEvent {
   entityId?: string;
   entityName?: string;
   eventAt: string;
-  details: Record<string, any>;
+  details: EventDetails;
 }
 
 export interface ActorWithProfile {

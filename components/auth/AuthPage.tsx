@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ensureProfileRow } from '@/lib/data/profiles';
-import { Store, Lock, Mail, User, Camera, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Store, Lock, Mail, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { translateError } from '@/lib/constants';
 import { emailValidator, passwordValidator, nameValidator } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
@@ -22,6 +22,14 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+
+  const nameId = useId();
+  const emailId = useId();
+  const passId = useId();
+  const confirmId = useId();
+  const submitOnEnter = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !loading) void handleSubmit();
+  };
 
   // مراجع للحقول: بعض المتصفحات (وإضافات إدارة كلمات المرور) تعبأ الحقول
   // دون تحديث حالة React، فقراءة القيمة الفعلية من DOM تضمن صحتها عند الإرسال.
@@ -93,7 +101,7 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
           return;
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       setError(translateError(err));
       toastError(translateError(err));
     } finally {
@@ -129,10 +137,11 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
         <div className="space-y-4">
           {mode === 'signup' && (
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">الاسم الكامل</label>
+              <label htmlFor={nameId} className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">الاسم الكامل</label>
               <div className="relative">
-                <User className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
+                <User className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" aria-hidden="true" />
                 <input
+                  id={nameId}
                   ref={fullNameRef}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -145,39 +154,45 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">البريد الإلكتروني</label>
+            <label htmlFor={emailId} className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">البريد الإلكتروني</label>
             <div className="relative">
-              <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
-<input
-                  ref={emailRef}
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  dir="ltr"
-                  autoComplete={mode === 'login' ? 'username' : 'email'}
-                  className="w-full pe-4 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
-                />
+              <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" aria-hidden="true" />
+              <input
+                id={emailId}
+                ref={emailRef}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={submitOnEnter}
+                placeholder="name@example.com"
+                dir="ltr"
+                autoComplete={mode === 'login' ? 'username' : 'email'}
+                className="w-full pe-4 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
+              />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">كلمة المرور</label>
+            <label htmlFor={passId} className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">كلمة المرور</label>
             <div className="relative">
-              <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
-<input
-                  ref={passwordRef}
-                  type={showPass ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  dir="ltr"
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  className="w-full pe-10 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
-                />
+              <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" aria-hidden="true" />
+              <input
+                id={passId}
+                ref={passwordRef}
+                type={showPass ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={submitOnEnter}
+                placeholder="••••••••"
+                dir="ltr"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                className="w-full pe-10 ps-10 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
+              />
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
+                aria-label={showPass ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                aria-pressed={showPass}
                 className="absolute end-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)]"
               >
                 {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -187,14 +202,16 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
 
           {mode === 'signup' && (
             <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">تأكيد كلمة المرور</label>
+              <label htmlFor={confirmId} className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">تأكيد كلمة المرور</label>
               <div className="relative">
-                <Camera className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
+                <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" aria-hidden="true" />
                 <input
+                  id={confirmId}
                   ref={confirmRef}
                   type={showConfirm ? 'text' : 'password'}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
+                  onKeyDown={submitOnEnter}
                   placeholder="••••••••"
                   dir="ltr"
                   autoComplete="new-password"
@@ -203,6 +220,8 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
+                  aria-label={showConfirm ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  aria-pressed={showConfirm}
                   className="absolute end-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)]"
                 >
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -232,7 +251,7 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
               />
               <span className="text-[12px] text-[var(--text-secondary)] leading-relaxed">
                 أوافق على{' '}
-                <span className="text-[var(--primary)] font-semibold">شروط الاستخدام</span>وخدمات متجر تراك
+                <span className="text-[var(--primary)] font-semibold">شروط الاستخدام</span> وخدمات متجر تراك
               </span>
             </label>
           )}

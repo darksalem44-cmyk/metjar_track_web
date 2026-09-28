@@ -6,13 +6,14 @@ import { useProfile } from '@/components/ProfileContext';
 import { fetchProductById, deleteProduct } from '@/lib/data/products';
 import { fetchStoreById } from '@/lib/data/stores';
 import { getCreatorNames } from '@/lib/data/stores';
+import { canDelete, canEdit } from '@/lib/permissions';
 import { deleteImageObjects, isStoredPath } from '@/lib/supabase';
 import { formatPrice, relativeTime, cn } from '@/lib/utils';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Chip, Button, CenteredSpinner } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
 import { ResolvedImage } from '@/components/ui/images';
-import { Package, Pencil, Trash2, Store as StoreIcon } from 'lucide-react';
+import { Pencil, Trash2, Store as StoreIcon } from 'lucide-react';
 
 export default function ProductDetails({ productId }: { productId: string }) {
   const router = useRouter();
@@ -43,8 +44,8 @@ export default function ProductDetails({ productId }: { productId: string }) {
 
   if (loading || !product) return <CenteredSpinner label="جاري تحميل المنتج..." />;
 
-  const editable = profile.role === 'manager' || !!profile.canEdit;
-  const deletable = profile.role === 'manager' || !!profile.canDelete;
+  const editable = canEdit(profile);
+  const deletable = canDelete(profile);
 
   const confirmDelete = async () => {
     setDeleting(true);
@@ -57,7 +58,7 @@ export default function ProductDetails({ productId }: { productId: string }) {
       }
       toastSuccess('تم حذف المنتج بنجاح');
       router.pop();
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر حذف المنتج');
     } finally {
       setDeleting(false);

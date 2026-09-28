@@ -581,6 +581,57 @@ pageCache.cacheBump('activities');
 check('تحديث الاسم يبطل كاش الحسابات (محاكاة cacheBump)', pageCache.cacheGet(pageCache.cacheKey('accounts', 'team-all')) === null && pageCache.cacheGeneration('accounts') !== genBefore, 'generation unchanged');
 console.log(`  — updateProfileName بلا صف: رفض آمن (${nameThrew})`);
 
+// ═══════════ 18) ترقيم الصفحات المرقّم وعدّادات الإجمالي ═══════════
+const controlsMod = load('components/ui/controls.tsx');
+const { paginationWindow } = controlsMod;
+
+// --- نافذة الأرقام: حالات الحدود ---
+eq('paginationWindow total=0', JSON.stringify(paginationWindow(1, 0)), '[]');
+eq('paginationWindow total=1', JSON.stringify(paginationWindow(0, 1)), '[1]');
+eq('paginationWindow total=7 كل الأرقام بلا فواصل', JSON.stringify(paginationWindow(3, 7)), '[1,2,3,4,5,6,7]');
+eq('paginationWindow total=8 قرب الوسط يلاصق البداية', JSON.stringify(paginationWindow(4, 8)), '[1,2,3,4,5,"ellipsis",8]');
+eq('paginationWindow total=8 قرب البداية', JSON.stringify(paginationWindow(1, 8)), '[1,2,3,4,5,"ellipsis",8]');
+eq('paginationWindow total=8 قرب النهاية', JSON.stringify(paginationWindow(8, 8)), '[1,"ellipsis",4,5,6,7,8]');
+eq('paginationWindow total=100 وسط (55)', JSON.stringify(paginationWindow(55, 100)), '[1,"ellipsis",53,54,55,56,57,"ellipsis",100]');
+eq('paginationWindow total=100 أول صفحة', JSON.stringify(paginationWindow(1, 100)), '[1,2,3,4,5,"ellipsis",100]');
+eq('paginationWindow total=100 آخر صفحة', JSON.stringify(paginationWindow(100, 100)), '[1,"ellipsis",96,97,98,99,100]');
+eq('paginationWindow current خارج المدى يُثبّت', JSON.stringify(paginationWindow(999, 100)), '[1,"ellipsis",96,97,98,99,100]');
+
+// --- العدّادات حية ضد Supabase (RLS للمستخدم المجهول يحدد القيم — المهم السلوك المحدد) ---
+const storesData = load('lib/data/stores.ts');
+const productsData = load('lib/data/products.ts');
+let countStoresResult = 'unknown';
+try {
+  const c = await storesData.countAllStores();
+  countStoresResult = `number:${c}`;
+  check('countAllStores يرجع رقماً', typeof c === 'number' && c >= 0, String(c));
+} catch (e) {
+  countStoresResult = `threw: ${String(e)}`;
+  check('countAllStores بلا انهيار', typeof e === 'string' || e instanceof Error, countStoresResult);
+}
+console.log(`  — countAllStores بدون جلسة: ${countStoresResult}`);
+
+let countProductsResult = 'unknown';
+try {
+  const c = await productsData.countAllProducts();
+  countProductsResult = `number:${c}`;
+  check('countAllProducts يرجع رقماً', typeof c === 'number' && c >= 0, String(c));
+} catch (e) {
+  countProductsResult = `threw: ${String(e)}`;
+  check('countAllProducts بلا انهيار', typeof e === 'string' || e instanceof Error, countProductsResult);
+}
+console.log(`  — countAllProducts بدون جلسة: ${countProductsResult}`);
+
+// --- وحدات الواجهة المعدّلة تُحمّل (تحقق الاستيرادات) ---
+for (const mod of [
+  'components/HomePage.tsx',
+  'components/profile/ProfilePage.tsx',
+  'components/accounts/AccountListPage.tsx',
+]) {
+  try { load(mod); check(`تحميل ${mod}`, true); }
+  catch (e) { check(`تحميل ${mod}`, false, String(e)); }
+}
+
 // ═══════════ النتيجة ═══════════
 console.log(`\n===== SMOKE RESULTS =====`);
 console.log(`PASSED: ${pass}`);

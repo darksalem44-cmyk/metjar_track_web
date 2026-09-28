@@ -265,9 +265,10 @@ export const errorMessages: Record<string, string> = {
   PASSWORD_UPDATE_FAILED: 'تعذّر تحديث كلمة المرور',
 };
 
-export function translateError(error: any): string {
+export function translateError(error: unknown): string {
   if (!error) return 'حدث خطأ غير متوقع';
-  const raw = typeof error === 'string' ? error : error?.message || '';
+  const message = (error as { message?: unknown })?.message;
+  const raw = typeof error === 'string' ? error : typeof message === 'string' ? message : '';
   for (const key of Object.keys(errorMessages)) {
     if (raw.includes(key)) return errorMessages[key];
   }

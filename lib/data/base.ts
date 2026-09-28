@@ -1,3 +1,10 @@
+/**
+ * صف خام من Supabase. أنواع قاعدة البيانات المولَّدة غير متاحة لأن المخطط ليس في
+ * المستودع (A12)، وهذا الحدّ الوحيد الذي يُعفى فيه الفحص من أي.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Row = Record<string, any>;
+
 export interface PageParams {
   page: number;
   pageSize: number;

@@ -6,12 +6,13 @@ import { useProfile } from '@/components/ProfileContext';
 import { fetchBranchesByStore, deleteBranch, mapBranch } from '@/lib/data/branches';
 import { fetchStoreById, canEditStore, canDeleteStore } from '@/lib/data/stores';
 import { deleteImageObjects, filterStoredPaths } from '@/lib/supabase';
+import { cacheKey, cachedLoad } from '@/lib/cache';
 import type { Branch } from '@/lib/types';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Chip, Button, CenteredSpinner, EmptyState } from '@/components/ui/controls';
 import { ConfirmDialog } from '@/components/ui/modals';
 import { TextField } from '@/components/ui/fields';
-import { Split, Pencil, Trash2, Plus, ChevronLeft, Hash } from 'lucide-react';
+import { Split, Pencil, Trash2, Plus, ChevronRight, Hash } from 'lucide-react';
 
 export default function BranchesPage({ storeId }: { storeId: string }) {
   const router = useRouter();
@@ -24,23 +25,37 @@ export default function BranchesPage({ storeId }: { storeId: string }) {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
+    let disposed = false;
     (async () => {
       try {
-        const [br, store] = await Promise.all([fetchBranchesByStore(storeId), fetchStoreById(storeId)]);
-        setBranches(br);
-        setStoreName(store?.name ?? '');
-      } catch (e: any) {
-        toastError(typeof e === 'string' ? e : 'تعذر تحميل الفروع');
+        await cachedLoad(
+          cacheKey('branches', `list:${storeId}`),
+          async () => {
+            const [br, store] = await Promise.all([fetchBranchesByStore(storeId), fetchStoreById(storeId)]);
+            return { branches: br, storeName: store?.name ?? '' };
+          },
+          (bundle) => {
+            if (disposed) return;
+            setBranches(bundle.branches);
+            setStoreName(bundle.storeName);
+            setLoading(false);
+          },
+        );
+      } catch (e) {
+        if (!disposed) toastError(typeof e === 'string' ? e : 'تعذر تحميل الفروع');
       } finally {
-        setLoading(false);
+        if (!disposed) setLoading(false);
       }
     })();
+    return () => {
+      disposed = true;
+    };
   }, [storeId]);
 
   if (loading) return <CenteredSpinner label="جاري تحميل الفروع..." />;
 
-  const editable = profile.role === 'manager' || canEditStore(profile);
-  const deletable = profile.role === 'manager' || canDeleteStore(profile);
+  const editable = canEditStore(profile);
+  const deletable = canDeleteStore(profile);
 
   const confirmDelete = async () => {
     if (!target) return;
@@ -66,7 +81,7 @@ export default function BranchesPage({ storeId }: { storeId: string }) {
       setBranches(branches.filter((b) => b.id !== target.id));
       setTarget(null);
       setDeleteName('');
-    } catch (err: any) {
+    } catch (err) {
       toastError(typeof err === 'string' ? err : 'تعذر حذف الفرع');
     } finally {
       setDeleting(false);
@@ -132,7 +147,7 @@ export default function BranchesPage({ storeId }: { storeId: string }) {
                     </button>
                   )}
                   <button onClick={() => router.push({ name: 'branch-details', storeId, branchId: b.id })} className="action-btn">
-                    <ChevronLeft className="w-4 h-4 rotate-180" />
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>

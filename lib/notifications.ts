@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase';
 import { currencyLabels, translateError } from '@/lib/constants';
 import type { ActivityAction, ActivityEntityType, CurrencyCode } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
+import type { Row } from './data/base';
+import type { EventDetails } from '@/lib/types';
 import {
   actionLabel,
   entityLabel,
@@ -10,7 +12,6 @@ import {
   eventPhrase,
   readEventDetails,
 } from './data/activities';
-import { fetchAllAccounts } from './data/accounts';
 
 // ─────────────── أنواع التنبيهات ───────────────
 
@@ -259,7 +260,7 @@ export interface PriceSnapshot {
   currency?: string;
 }
 
-function priceOf(details: any): { price: number; currency?: string } | null {
+function priceOf(details: unknown): { price: number; currency?: string } | null {
   const row = readEventDetails(details);
   const price = Number(row['price']);
   if (!Number.isFinite(price)) return null;
@@ -282,9 +283,11 @@ interface EventLike {
  * اللقطة الكاملة في details لا تقول أي حقل تغيّر، لذا المقارنة بين لقطتين متتاليتين
  * هي الطريقة الدقيقة المتاحة بلا أي تغيير على قاعدة البيانات.
  */
+export type PriceHistoryRow = { entity_id?: string | null; event_at: string; details?: EventDetails };
+
 export function previousPricesByEvent(
   current: EventLike[],
-  history: { entity_id?: string | null; event_at: string; details?: any }[],
+  history: PriceHistoryRow[],
 ): Record<string, PriceSnapshot | undefined> {
   const byEntity = new Map<string, PriceSnapshot[]>();
   for (const row of history) {
@@ -321,7 +324,7 @@ export interface AlertEventRow {
   entity_id?: string | null;
   entity_name?: string | null;
   event_at: string;
-  details?: any;
+  details?: EventDetails;
 }
 
 export interface AlertActor {
@@ -391,7 +394,13 @@ export interface FetchAlertsOptions {
 /** أوسع نافذة بحث عن اللقطة السابقة لمنتج، لتبقى مقارنة السعر دقيقة. */
 const PRICE_HISTORY_DAYS = 180;
 
-export async function fetchAdminAlerts(opts: FetchAlertsOptions = {}): Promise<AdminAlert[]> {
+export interface AlertsFetchResult {
+  alerts: AdminAlert[];
+  /** true عندما تجاوز عدد الأحداث النافذة المطلوبة — أي أن الأقدم غير معروضة */
+  truncated: boolean;
+}
+
+export async function fetchAdminAlertsResult(opts: FetchAlertsOptions = {}): Promise<AlertsFetchResult> {
   const days = opts.days ?? 30;
   const limit = opts.limit ?? 80;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -401,18 +410,30 @@ export async function fetchAdminAlerts(opts: FetchAlertsOptions = {}): Promise<A
     .select('id, actor_id, actor_role, event_action, entity_type, entity_id, entity_name, event_at, details')
     .gte('event_at', since.toISOString())
     .order('event_at', { ascending: false })
-    .limit(limit);
+    .limit(limit + 1);
   if (error) throw translateError(error);
 
-  const rows = (data ?? []) as AlertEventRow[];
+  const fetched = (data ?? []) as AlertEventRow[];
+  const truncated = fetched.length > limit;
+  const rows = truncated ? fetched.slice(0, limit) : fetched;
 
-  // أسماء الفاعلين: جدول profiles صغير، فنجلبه مرة واحدة بدل ربط معقّد.
   let actors = new Map<string, AlertActor>();
-  try {
-    const accounts = await fetchAllAccounts();
-    actors = new Map(accounts.map((a) => [a.id, { fullName: a.fullName, role: a.role }]));
-  } catch {
-    // التنبيهات تعمل حتى لو تعذّر جلب الأسماء
+  const actorIds = [...new Set(rows.map((r) => r.actor_id).filter((id): id is string => !!id))];
+  if (actorIds.length > 0) {
+    try {
+      const { data: people } = await supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .in('id', actorIds);
+      actors = new Map(
+        ((people ?? []) as { id: string; full_name: string | null; role: string | null }[]).map((p) => [
+          p.id,
+          { fullName: p.full_name ?? '', role: p.role ?? undefined },
+        ]),
+      );
+    } catch {
+      // التنبيهات تعمل حتى لو تعذّر جلب الأسماء
+    }
   }
 
   const productIds = [
@@ -435,11 +456,15 @@ export async function fetchAdminAlerts(opts: FetchAlertsOptions = {}): Promise<A
       .order('event_at', { ascending: true })
       .limit(1000);
     if (!historyError) {
-      previousPrices = previousPricesByEvent(rows, (history ?? []) as any[]);
+      previousPrices = previousPricesByEvent(rows, (history ?? []) as PriceHistoryRow[]);
     }
   }
 
-  return buildAlerts(rows, { actors, previousPrices });
+  return { alerts: buildAlerts(rows, { actors, previousPrices }), truncated };
+}
+
+export async function fetchAdminAlerts(opts: FetchAlertsOptions = {}): Promise<AdminAlert[]> {
+  return (await fetchAdminAlertsResult(opts)).alerts;
 }
 
 // ─────────────── تصدير وطباعة التقرير ───────────────
@@ -854,7 +879,7 @@ export async function fetchWeeklyReports(limit = 12): Promise<WeeklyReport[]> {
     .limit(limit);
   if (error) return [];
 
-  return ((data ?? []) as any[]).map((row) => ({
+  return ((data ?? []) as Row[]).map((row) => ({
     id: row.id,
     weekStart: row.week_start,
     weekEnd: row.week_end,

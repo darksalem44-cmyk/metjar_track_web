@@ -159,7 +159,7 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
         toastSuccess('تم إضافة المتجر بنجاح');
         router.replace({ name: 'store-details', storeId: created.id });
       }
-    } catch (err: any) {
+    } catch (err) {
       toastError(typeof err === 'string' ? err : 'تعذر حفظ المتجر');
     } finally {
       setSaving(false);
@@ -170,7 +170,7 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
 
   if (loading) return <CenteredSpinner label="جاري تحميل بيانات المتجر..." />;
 
-  const editable = profile.role === 'manager' || canEditStore(profile);
+  const editable = canEditStore(profile);
 
   return (
     <div className="mx-auto max-w-3xl">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import {
   getActorDaily,
@@ -22,8 +22,7 @@ import type {
   PeriodKey,
   UserRole,
 } from '@/lib/types';
-import { formatDateTime, getPeriodRange, relativeTime } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTime, getPeriodRange, relativeTime } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
 import { CalendarDays, PlusCircle, PenLine, Trash2, Box, Split } from 'lucide-react';
 import {
@@ -51,6 +50,16 @@ const ACTION_FILTERS: [ActivityAction | 'all', string][] = [
   ['updated', 'تعديل'],
   ['deleted', 'حذف'],
 ];
+
+const CHART_MARGIN = { top: 8, right: 8, left: -18, bottom: 0 } as const;
+const AXIS_TICK = { fontSize: 10, fill: 'var(--text-muted)' } as const;
+const TOOLTIP_STYLE = {
+  borderRadius: 12,
+  border: '1px solid var(--border)',
+  background: 'var(--surface)',
+  fontSize: 12,
+  direction: 'rtl',
+} as const;
 
 export default function UserReport({
   actorId,
@@ -80,6 +89,15 @@ export default function UserReport({
   const [dayEvents, setDayEvents] = useState<ActivityEvent[]>([]);
   const [dayLoading, setDayLoading] = useState(false);
   const [detailEvent, setDetailEvent] = useState<ActivityEvent | null>(null);
+  const aliveRef = useRef(true);
+  const statsReqRef = useRef(0);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
   const [from, to] = useMemo(() => {
     if (range === 'custom') {
@@ -104,11 +122,14 @@ export default function UserReport({
   });
 
   const loadStats = async (reloadChart: boolean) => {
+    const req = ++statsReqRef.current;
     try {
       const d = await getActorDaily({ actorId, from, to, timezone: 'Asia/Damascus' });
+      if (!aliveRef.current || statsReqRef.current !== req) return;
       setDaily(d);
       // نمرّر دور صاحب التقرير الحقيقي (الـ RPC يفلتر بـ p_actor_role ولا يفهم 'all')
       const s = await getActorSummariesForActors([{ id: actorId, role }], { from, to });
+      if (!aliveRef.current || statsReqRef.current !== req) return;
       const row = s[actorId];
       setEntities({
         stores: row?.stores ?? 0,
@@ -117,10 +138,12 @@ export default function UserReport({
       });
       if (reloadChart) {
         const ev = await getTimeline({ actorId, from, to, filter: currentFilter(), fromRow: 0, limit: 20 });
+        if (!aliveRef.current || statsReqRef.current !== req) return;
         setEvents(ev);
         setHasMore(ev.length === 20);
       }
-    } catch (e: any) {
+    } catch (e) {
+      if (!aliveRef.current || statsReqRef.current !== req) return;
       toastError(typeof e === 'string' ? e : 'تعذر تحميل التقرير');
     }
   };
@@ -146,7 +169,7 @@ export default function UserReport({
       });
       setEvents((list) => [...list, ...more]);
       setHasMore(more.length === 20);
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر تحميل المزيد');
     } finally {
       setLoadingMore(false);
@@ -174,7 +197,7 @@ export default function UserReport({
       });
       setEvents(ev);
       setHasMore(ev.length === 20);
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر تحديث التصفية');
     }
   };
@@ -188,7 +211,7 @@ export default function UserReport({
       const t = new Date(`${day}T23:59:59.999`);
       const ev = await getTimeline({ actorId, from: f, to: t, fromRow: 0, limit: 100 });
       setDayEvents(ev);
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر تحميل تفاصيل اليوم');
       setDayEvents([]);
     } finally {
@@ -202,10 +225,14 @@ export default function UserReport({
   );
   const grandTotal = totals.created + totals.updated + totals.deleted;
 
-  const chartData = daily.map((d) => {
-    const parts = d.day.split('-');
-    return { ...d, label: `${parts[2]}/${parts[1]}` };
-  });
+  const chartData = useMemo(
+    () =>
+      daily.map((d) => {
+        const parts = d.day.split('-');
+        return { ...d, label: `${parts[2]}/${parts[1]}` };
+      }),
+    [daily],
+  );
 
   const toneForAction = (action: string): 'success' | 'primary' | 'error' =>
   action === 'created' ? 'success' : action === 'updated' ? 'primary' : 'error';
@@ -311,19 +338,19 @@ export default function UserReport({
             ) : (
               <>
                 <ResponsiveContainer width="100%" height={230} dir="ltr">
-                  <BarChart data={chartData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }} barGap={2}>
+                  <BarChart data={chartData} margin={CHART_MARGIN} barGap={2}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="label" tick={AXIS_TICK} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={AXIS_TICK} axisLine={false} tickLine={false} />
                     <Tooltip
                       cursor={{ fill: 'var(--surface-variant)', opacity: 0.5 }}
-                      formatter={(value: any, name: any) => [`${value} حدث`, name]}
+                      formatter={(value, name) => [`${value} حدث`, name]}
                       labelFormatter={(l) => `التاريخ: ${l}`}
-                      contentStyle={{ borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 12, direction: 'rtl' }}
+                      contentStyle={TOOLTIP_STYLE}
                     />
-                    <Bar dataKey="created" name="إضافة" fill="var(--green)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d: any) => openDay(d?.payload?.day)} />
-                    <Bar dataKey="updated" name="تعديل" fill="var(--primary)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d: any) => openDay(d?.payload?.day)} />
-                    <Bar dataKey="deleted" name="حذف" fill="var(--error)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d: any) => openDay(d?.payload?.day)} />
+                    <Bar dataKey="created" name="إضافة" fill="var(--green)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
+                    <Bar dataKey="updated" name="تعديل" fill="var(--primary)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
+                    <Bar dataKey="deleted" name="حذف" fill="var(--error)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="flex items-center justify-center gap-5 mt-3">

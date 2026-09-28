@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
@@ -83,6 +84,17 @@ const chipTones: Record<ChipTone, string> = {
   purple: 'bg-[var(--purple-light)] text-[var(--purple)] border-[var(--purple)]/40',
   orange: 'bg-[var(--orange-light)] text-[var(--orange)] border-[var(--orange)]/40',
   error: 'bg-[var(--error)]/10 text-[var(--error)] border-[var(--error)]/40',
+};
+
+const toneText: Record<ChipTone, string> = {
+  primary: 'text-[var(--primary)]',
+  success: 'text-[var(--green)]',
+  accent: 'text-[var(--accent-text)]',
+  warning: 'text-[var(--warning)]',
+  neutral: 'text-[var(--text)]',
+  purple: 'text-[var(--purple)]',
+  orange: 'text-[var(--orange)]',
+  error: 'text-[var(--error)]',
 };
 
 export function Chip({
@@ -173,20 +185,150 @@ export function EmptyState({
   );
 }
 
+/**
+ * نافذة أرقام الصفحات المنزلقة حول الصفحة الحالية.
+ * مثال: 100 صفحة والصفحة الحالية 55 → [1, «…», 53, 54, 55, 56, 57, «…», 100]
+ * دالة خالصة تُختبر في __smoke__.mjs — بلا أي اعتماد على React.
+ */
+export function paginationWindow(
+  current: number,
+  total: number,
+  maxButtons = 5,
+): (number | 'ellipsis')[] {
+  if (total <= 1) return total === 1 ? [1] : [];
+  const currentSafe = Math.min(Math.max(1, current), total);
+  // كل الأرقام تتسع ضمن الحد المسموح + النهايتان → عرض كامل بلا فواصل
+  if (total <= maxButtons + 2) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const side = Math.max(1, Math.floor((maxButtons - 1) / 2));
+  let start = Math.max(2, currentSafe - side);
+  let end = Math.min(total - 1, currentSafe + side);
+  // أوسّع النافذة عند ملاصقة إحدى النهايتين حتى يثبت عدد الأزرار
+  if (currentSafe - side <= 2) end = Math.min(total - 1, maxButtons);
+  if (currentSafe + side >= total - 1) start = Math.max(2, total - maxButtons + 1);
+  const out: (number | 'ellipsis')[] = [1];
+  if (start > 2) out.push('ellipsis');
+  for (let p = start; p <= end; p++) out.push(p);
+  if (end < total - 1) out.push('ellipsis');
+  out.push(total);
+  return out;
+}
+
+/**
+ * مؤشر ترقيم صفحات كامل: أرقام بنافذة منزلقة + سابق/تالي + إدخال قفز مباشر.
+ * يتيح الانتقال من الصفحة 1 إلى 55 من أصل 100 بضغطة واحدة أو بكتابة الرقم.
+ */
+export function NumbersPaginationFooter({
+  page,
+  totalPages,
+  onPage,
+  loading = false,
+}: {
+  page: number; // صفري الأساس
+  totalPages: number;
+  onPage: (page: number) => void;
+  loading?: boolean;
+}) {
+  const [jumpValue, setJumpValue] = useState('');
+  const current = page + 1;
+  const safeTotal = Math.max(totalPages, 1);
+  const submitJump = () => {
+    const target = parseInt(jumpValue, 10);
+    if (!Number.isNaN(target) && target >= 1 && target <= safeTotal) {
+      onPage(target - 1);
+      setJumpValue('');
+    }
+  };
+  const pages = paginationWindow(current, safeTotal);
+  if (safeTotal <= 1) return null;
+  return (
+    <div className="flex flex-col items-center gap-2 py-4">
+      <div className="flex items-center justify-center gap-1.5 flex-wrap" dir="rtl">
+        <Button variant="surface" size="sm" onClick={() => onPage(page - 1)} disabled={page === 0 || loading}>
+          السابق
+        </Button>
+        {pages.map((p, i) =>
+          p === 'ellipsis' ? (
+            <span key={`e${i}`} className="px-1 text-[12px] text-[var(--text-muted)] select-none">
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onPage(p - 1)}
+              disabled={loading}
+              aria-current={p === current ? 'page' : undefined}
+              className={cn(
+                'min-w-8 h-8 px-2 rounded-lg text-[12px] font-semibold transition-colors',
+                p === current
+                  ? 'bg-[var(--primary)] text-[var(--on-primary)] shadow-sm'
+                  : 'bg-[var(--surface)] border border-[var(--border-light)] text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]',
+              )}
+            >
+              {p}
+            </button>
+          ),
+        )}
+        <Button variant="surface" size="sm" onClick={() => onPage(page + 1)} disabled={page + 1 >= safeTotal || loading}>
+          التالي
+        </Button>
+      </div>
+      {safeTotal > 10 && (
+        <div className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+          <span>الانتقال إلى صفحة</span>
+          <input
+            type="number"
+            min={1}
+            max={safeTotal}
+            value={jumpValue}
+            onChange={(e) => setJumpValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitJump();
+            }}
+            placeholder="1"
+            dir="ltr"
+            className="w-16 h-7 text-center rounded-lg border border-[var(--border)] bg-[var(--input)] text-[12px] text-[var(--text)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <span>من {safeTotal}</span>
+          <Button variant="ghost" size="sm" onClick={submitJump} disabled={loading}>
+            انتقال
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * غلاف توافق قديم (سابق/تالي فقط) فوق المؤشر المرقّم.
+ * عند تمرير total (عدد الصفحات) مع onPage يُعرض المؤشر المرقّم الكامل، وإلا يبقى الشكل القديم.
+ */
 export function PaginationFooter({
   page,
   hasMore,
   onPrev,
   onNext,
   skip,
+  total,
+  onPage,
+  loading,
 }: {
   page: number;
   hasMore: boolean;
-  onPrev: () => void;
-  onNext: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
   skip?: boolean;
+  total?: number;
+  /** مطلوب مع total: الانتقال المطلق إلى صفحة (صفري الأساس) — يدعم القفز لأي رقم */
+  onPage?: (page: number) => void;
+  loading?: boolean;
 }) {
-  if (skip ?? (page === 0 && !hasMore)) return null;
+  if (skip ?? (page === 0 && !hasMore && !total)) return null;
+  if (total !== undefined && total > 0 && onPage) {
+    return <NumbersPaginationFooter page={page} totalPages={total} onPage={onPage} loading={loading} />;
+  }
   return (
     <div className="flex items-center justify-center gap-3 py-4">
       <Button variant="surface" size="sm" onClick={onPrev} disabled={page === 0}>
@@ -218,10 +360,22 @@ export function PageHeader({
       <div className="flex items-center gap-3 min-w-0">
         {onBack && (
           <button
+            type="button"
             onClick={onBack}
+            aria-label="رجوع"
             className="grid place-items-center w-9 h-9 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
@@ -253,7 +407,9 @@ export function StatCard({
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-4 gap-1.5">
       {icon && <span className="text-[var(--text-muted)]">{icon}</span>}
-      <span className="text-[20px] font-bold text-[var(--text)] leading-none">{value}</span>
+      <span className={cn('text-[20px] font-bold leading-none', tint ? toneText[tint] : 'text-[var(--text)]')}>
+        {value}
+      </span>
       <span className="text-[11px] text-[var(--text-secondary)]">{label}</span>
     </div>
   );

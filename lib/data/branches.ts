@@ -1,9 +1,16 @@
 ﻿import { supabase } from '@/lib/supabase';
-import type { Branch } from '@/lib/types';
+import type { Branch, CustomFields } from '@/lib/types';
+import type { Row } from './base';
 import { translateError } from '@/lib/constants';
 import { cacheBump } from '@/lib/cache';
 
-export function mapBranch(row: any): Branch {
+/** الأعمدة التي يقرؤها mapBranch — بدل سحب كل أعمدة الجدول. */
+const BRANCH_SELECT =
+  'id, store_id, name, branch_code, category, phone, latitude, longitude, address, notes, cover_image_urls, ' +
+  'signage_image_url, open_at, close_at, is_active, shamcash_wallet_id, shamcash_qr_image_url, paymera_wallet_id, ' +
+  'paymera_qr_image_url, custom_fields, created_by, created_at, updated_at';
+
+export function mapBranch(row: Row): Branch {
   return {
     id: row.id,
     storeId: row.store_id,
@@ -34,7 +41,7 @@ export function mapBranch(row: any): Branch {
 export async function fetchBranchesByStore(storeId: string): Promise<Branch[]> {
   const { data, error } = await supabase
     .from('branches')
-    .select()
+    .select(BRANCH_SELECT)
     .eq('store_id', storeId)
     .is('deleted_at', null)
     .order('name');
@@ -43,7 +50,7 @@ export async function fetchBranchesByStore(storeId: string): Promise<Branch[]> {
 }
 
 export async function fetchBranchById(id: string): Promise<Branch | null> {
-  const { data, error } = await supabase.from('branches').select().eq('id', id).single();
+  const { data, error } = await supabase.from('branches').select(BRANCH_SELECT).eq('id', id).is('deleted_at', null).single();
   if (error || !data) return null;
   return mapBranch(data);
 }
@@ -67,7 +74,7 @@ export interface BranchInput {
   shamcashQrImageUrl?: string;
   paymeraWalletId?: string;
   paymeraQrImageUrl?: string;
-  customFields: Record<string, any>;
+  customFields: CustomFields;
   userLatitude?: number;
   userLongitude?: number;
 }
@@ -97,9 +104,10 @@ export async function createBranch(input: BranchInput, createdBy: string): Promi
     is_active: input.isActive,
     created_by: createdBy,
   };
-  const { data, error } = await supabase.from('branches').insert(row).select().single();
+  const { data, error } = await supabase.from('branches').insert(row).select(BRANCH_SELECT).single();
   if (error) throw translateError(error);
   cacheBump('stores');
+  cacheBump('branches');
   return mapBranch(data);
 }
 
@@ -127,9 +135,10 @@ export async function updateBranch(id: string, input: BranchInput): Promise<Bran
     is_active: input.isActive,
     updated_at: new Date().toISOString(),
   };
-  const { data, error } = await supabase.from('branches').update(row).eq('id', id).select().single();
+  const { data, error } = await supabase.from('branches').update(row).eq('id', id).select(BRANCH_SELECT).single();
   if (error) throw translateError(error);
   cacheBump('stores');
+  cacheBump('branches');
   return mapBranch(data);
 }
 
@@ -141,13 +150,19 @@ export async function deleteBranch(branchId: string, confirmationName: string): 
   });
   if (error) throw translateError(error);
   cacheBump('stores');
+  cacheBump('branches');
 }
 
 export async function assignBranchCode(branchId: string, code: string): Promise<void> {
   const { error } = await supabase.from('branches').update({ branch_code: code }).eq('id', branchId);
   if (error) throw translateError(error);
+  cacheBump('branches');
 }
 
 export function generateBranchCode(): string {
-  return `BR-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const buffer = new Uint32Array(5);
+  crypto.getRandomValues(buffer);
+  const suffix = Array.from(buffer, (v) => alphabet[v % alphabet.length]).join('');
+  return `BR-${suffix}`;
 }

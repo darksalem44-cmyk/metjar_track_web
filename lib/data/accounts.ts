@@ -1,10 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import type { ActorWithProfile, Profile, UserRole } from '@/lib/types';
 import { translateError, AppConstants } from '@/lib/constants';
-import { resolvePage, type PageParams, type PageResult } from './base';
+import { resolvePage, type Row, type PageParams, type PageResult } from './base';
 import { cacheBump } from '@/lib/cache';
 
-export function mapAccount(row: any): ActorWithProfile {
+const ACCOUNT_SELECT = 'id, email, full_name, role, can_edit, can_delete, is_active, created_at';
+
+export function mapAccount(row: Row): ActorWithProfile {
   return {
     id: row.id,
     role: (row.role ?? 'merchant') as ActorWithProfile['role'],
@@ -17,7 +19,7 @@ export function mapAccount(row: any): ActorWithProfile {
   };
 }
 
-function mapProfileRow(row: any): Profile {
+function mapProfileRow(row: Row): Profile {
   return {
     id: row.id,
     email: row.email,
@@ -42,9 +44,9 @@ export async function fetchAccounts(params: AccountListParams): Promise<PageResu
     .from('profiles')
     .select('id, email, full_name, role, can_edit, can_delete, is_active, created_at')
     .eq('role', role);
-
   if (search?.trim()) {
-    query = query.or(`full_name.ilike.%${search.trim()}%,email.ilike.%${search.trim()}%`);
+    const term = search.trim().replace(/[(),]/g, ' ');
+    query = query.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
   }
   if (filter === 'active') {
     query = query.eq('is_active', true);
@@ -65,7 +67,7 @@ export async function fetchAccounts(params: AccountListParams): Promise<PageResu
 export async function fetchAllAccountsByRole(role: UserRole): Promise<Profile[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(ACCOUNT_SELECT)
     .eq('role', role)
     .order('full_name', { ascending: true });
   if (error) throw translateError(error);
@@ -75,7 +77,7 @@ export async function fetchAllAccountsByRole(role: UserRole): Promise<Profile[]>
 export async function fetchAllAccounts(): Promise<Profile[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(ACCOUNT_SELECT)
     .order('full_name', { ascending: true });
   if (error) throw translateError(error);
   return (data ?? []).map(mapProfileRow);
@@ -93,7 +95,7 @@ export async function createEmployeeAccount(opts: {
   const { error } = await supabase.functions.invoke('create-employee', {
     body: { email, password: opts.password, full_name: opts.fullName.trim() },
   });
-  if (error) throw _functionErrorMessage(error, 'تعذر إنشاء الموظف');
+  if (error) throw functionErrorMessage(error, 'تعذر إنشاء الموظف');
 }
 
 export async function createMerchantAccount(opts: {
@@ -108,7 +110,7 @@ export async function createMerchantAccount(opts: {
       full_name: opts.fullName.trim(),
     },
   });
-  const data = response.data as any;
+  const data = response.data as { success?: unknown; error?: unknown; message?: unknown; merchant?: Row } | null;
   if (!data || data['success'] !== true) {
     const message =
       (typeof data?.['error'] === 'string' && data['error']) ||
@@ -211,9 +213,12 @@ export async function adminResetPassword(accountId: string, newPassword: string)
   }
 }
 
-function _functionErrorMessage(error: any, fallback: string): string {
-  if (typeof error?.message === 'string') return translateError(error.message);
-  const details = error?.context?.message || error?.context?.error || error?.message;
+function functionErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === 'string') return error.trim() || fallback;
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: unknown; context?: { message?: unknown; error?: unknown } };
+  if (typeof e.message === 'string' && e.message.trim()) return translateError(e.message);
+  const details = e.context?.message ?? e.context?.error;
   if (typeof details === 'string' && details.trim()) return details;
   return fallback;
 }

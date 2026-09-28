@@ -60,7 +60,7 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
         setBranchId(p.branchId ?? '');
         setImageUrls(p.imageUrls ?? []);
         setDescription(p.description ?? '');
-      } catch (e: any) {
+      } catch (e) {
         toastError(typeof e === 'string' ? e : 'تعذر تحميل البيانات');
       } finally {
         setLoading(false);
@@ -109,7 +109,7 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
         toastSuccess('تمت إضافة المنتج بنجاح');
         router.replace({ name: 'product-details', productId: created.id });
       }
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر حفظ المنتج');
     } finally {
       setSaving(false);

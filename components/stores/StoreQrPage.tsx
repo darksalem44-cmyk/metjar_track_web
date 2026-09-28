@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
-import { useProfile } from '@/components/ProfileContext';
 import { fetchStoreById } from '@/lib/data/stores';
 import { toastError } from '@/lib/toast';
 import { PageHeader, CenteredSpinner, EmptyState } from '@/components/ui/controls';
@@ -11,7 +10,6 @@ import { FileText, Store } from 'lucide-react';
 
 export default function StoreQrPage({ storeId }: { storeId: string }) {
   const router = useRouter();
-  const profile = useProfile();
   const [url, setUrl] = useState('');
   const [storeName, setStoreName] = useState('');
   const [loading, setLoading] = useState(true);

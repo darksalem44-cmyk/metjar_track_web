@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import { fetchAllAccounts } from '@/lib/data/accounts';
 import { getActorSummariesForActors } from '@/lib/data/activities';
@@ -13,7 +13,7 @@ import { BarChart3, CalendarRange, TrendingUp, Users } from 'lucide-react';
 import { Avatar, CenteredSpinner, Chip, EmptyState } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
 import ActivityWeeklyChart from '@/components/activities/ActivityWeeklyChart';
-import { fetchAdminAlerts } from '@/lib/notifications';
+import { fetchAdminAlertsResult, type AdminAlert } from '@/lib/notifications';
 import { buildActivityTrendSeries } from '@/lib/trends';
 
 const ZERO_SUMMARY: ActorSummary = {
@@ -54,12 +54,12 @@ export default function ActivitiesList() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountFilter>('all');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
-  const [overview, setOverview] = useState<Awaited<ReturnType<typeof fetchAdminAlerts>>>([]);
-
-  const profileRole = actors.length >= 0 ? undefined : undefined; // (يُستخدم أدناه عبر useProfile)
-  void profileRole;
+  const [overview, setOverview] = useState<AdminAlert[]>([]);
+  const [chartTruncated, setChartTruncated] = useState(false);
+  const reqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const req = ++reqRef.current;
     setLoading(true);
     try {
       const windowKey = range === 'all' ? 'all' : range;
@@ -78,16 +78,17 @@ export default function ActivitiesList() {
           return { accounts: all, summaries: rows };
         },
         (bundle) => {
+          if (reqRef.current !== req) return;
           setActors(bundle.accounts);
           setSummaries(bundle.summaries);
           // النسخة المخزنة تُعرض فوراً بلا سبينر
           setLoading(false);
         },
       );
-    } catch (e: any) {
-      toastError(typeof e === 'string' ? e : 'تعذر تحميل النشاطات');
+    } catch (e) {
+      if (reqRef.current === req) toastError(typeof e === 'string' ? e : 'تعذر تحميل النشاطات');
     } finally {
-      setLoading(false);
+      if (reqRef.current === req) setLoading(false);
     }
   }, [range]);
 
@@ -98,9 +99,11 @@ export default function ActivitiesList() {
   // بيانات المخطط العام (آخر 8 أسابيع) — تجلب مرة واحدة عند فتح الصفحة
   useEffect(() => {
     let disposed = false;
-    fetchAdminAlerts({ days: CHART_DAYS, limit: 500 })
-      .then((data) => {
-        if (!disposed) setOverview(data);
+    fetchAdminAlertsResult({ days: CHART_DAYS, limit: 500 })
+      .then((res) => {
+        if (disposed) return;
+        setOverview(res.alerts);
+        setChartTruncated(res.truncated);
       })
       .catch(() => {
         // المخطط العام اختياري — فشله لا يمنع القائمة
@@ -226,6 +229,7 @@ export default function ActivitiesList() {
           <p className="flex items-center justify-center gap-1.5 text-[10.5px] text-[var(--text-muted)] mt-2">
             <Users className="w-3.5 h-3.5" />
             {activeCount} مستخدماً نشطاً في آخر 8 أسابيع
+            {chartTruncated && ' • المخطط يحسب الأحدث 500 حدثاً فقط'}
           </p>
         </div>
       )}

@@ -9,7 +9,7 @@ import {
   updateAccountPermissions,
 } from '@/lib/data/accounts';
 import { accountFilterOptions } from '@/lib/constants';
-import type { ActorWithProfile, AccountFilter, UserRole } from '@/lib/types';
+import type { ActorWithProfile, AccountFilter } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -63,7 +63,7 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
         setAccounts(res.items);
         setHasMore(res.hasMore);
         setPage(pg);
-      } catch (e: any) {
+      } catch (e) {
         toastError(typeof e === 'string' ? e : 'تعذر تحميل الحسابات');
       } finally {
         setLoading(false);
@@ -93,6 +93,9 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
     [accounts],
   );
 
+  // عدد الصفحات الكلي للمؤشر المرقّم — متاح فقط بلا بحث/فلتر لأن stats.total إجمالي بلا فلاتر
+  const totalPages = search.trim() === '' && filter === 'all' ? Math.max(1, Math.ceil(stats.total / PAGE_SIZE)) : null;
+
   const applyActive = async (acc: ActorWithProfile, active: boolean) => {
     setBusyId(acc.id);
     const prev = accounts;
@@ -101,7 +104,7 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
       await updateAccountActive(acc.id, active);
       toastSuccess(active ? 'تم تفعيل الحساب' : 'تم تعطيل الحساب');
       loadStats();
-    } catch (e: any) {
+    } catch (e) {
       setAccounts(prev);
       toastError(typeof e === 'string' ? e : 'تعذر تحديث الحالة');
     } finally {
@@ -135,7 +138,7 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
       setPermTarget(null);
       setPermUnlock(false);
       loadStats();
-    } catch (e: any) {
+    } catch (e) {
       setAccounts(prev);
       toastError(typeof e === 'string' ? e : 'تعذر تحديث الصلاحيات');
     } finally {
@@ -231,8 +234,10 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
           <PaginationFooter
             page={page}
             hasMore={hasMore}
-            onPrev={() => load(search.trim(), page - 1, filter)}
-            onNext={() => load(search.trim(), page + 1, filter)}
+            total={totalPages ?? undefined}
+            onPage={(pg) => load(queryRef.current, pg, filter)}
+            onPrev={() => load(queryRef.current, page - 1, filter)}
+            onNext={() => load(queryRef.current, page + 1, filter)}
           />
         </>
       )}

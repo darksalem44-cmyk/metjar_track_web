@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/modals';
 import { Button } from '@/components/ui/controls';
 import { TextField } from '@/components/ui/fields';
 import { CreatedAccountActions } from '@/components/ui/accountUtils';
-import { KeyRound, Loader2 } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 import type { UserRole } from '@/lib/types';
 
 export default function AddAccountDialog({
@@ -55,7 +55,7 @@ export default function AddAccountDialog({
       }
       setCreated({ email: email.trim().toLowerCase(), password, name: name.trim() });
       onCreated();
-    } catch (e: any) {
+    } catch (e) {
       setError(typeof e === 'string' ? e : 'تعذر إنشاء الحساب');
       toastError(typeof e === 'string' ? e : 'تعذر إنشاء الحساب');
     } finally {

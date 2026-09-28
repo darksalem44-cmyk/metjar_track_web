@@ -5,6 +5,7 @@ import { useRouter } from '@/components/RouterContext';
 import { useProfile } from '@/components/ProfileContext';
 import { fetchBranchById, deleteBranch } from '@/lib/data/branches';
 import { fetchStoreById, getCreatorNames } from '@/lib/data/stores';
+import { canDelete, canEdit } from '@/lib/permissions';
 import { fetchProductsByBranch } from '@/lib/data/products';
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import type { Branch, Product } from '@/lib/types';
@@ -16,7 +17,7 @@ import { Modal, ConfirmDialog } from '@/components/ui/modals';
 import { TextField } from '@/components/ui/fields';
 import { ResolvedImage, ImageRow } from '@/components/ui/images';
 import QuickAddProduct from '@/components/products/QuickAddProduct';
-import { Phone, MapPin, Clock, Pencil, Trash2, Split, Hash, Package, Plus, Wallet, Copy } from 'lucide-react';
+import { Phone, MapPin, Clock, Pencil, Trash2, Hash, Package, Plus, Wallet, Copy } from 'lucide-react';
 
 export default function BranchDetails({ storeId, branchId }: { storeId: string; branchId: string }) {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
             setLoading(false);
           },
         );
-      } catch (e: any) {
+      } catch (e) {
         if (!disposed) toastError(typeof e === 'string' ? e : 'تعذر تحميل الفرع');
       } finally {
         if (!disposed) setLoading(false);
@@ -87,8 +88,8 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
     ...(branch.coverImageUrls ?? []),
   ].filter((x): x is string => !!x);
 
-  const editable = profile.role === 'manager' || !!profile.canEdit;
-  const deletable = profile.role === 'manager' || !!profile.canDelete;
+  const editable = canEdit(profile);
+  const deletable = canDelete(profile);
 
   const confirmDelete = async () => {
     if (deleteName.trim() !== branch.name) {
@@ -102,7 +103,7 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
       try { await deleteImageObjects(toDelete); } catch { /* تجاهل */ }
       toastSuccess('تم حذف الفرع بنجاح');
       router.pop();
-    } catch (err: any) {
+    } catch (err) {
       toastError(typeof err === 'string' ? err : 'تعذر حذف الفرع');
     } finally {
       setDeleting(false);
@@ -259,7 +260,7 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
         onConfirm={confirmDelete}
       >
         <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
-          سيتم تعطيل الفرع «{branch.name}». لن يتم حذف البيانات نهائياً.
+          سيتم تعطيل الفرع «{branch.name}». تبقى بياناته في القاعدة لكن صور الفرع ورموز الدفع تُحذف نهائياً ولا يمكن استرجاعها.
         </p>
         <TextField label="اكتب اسم الفرع للتأكيد" value={deleteName} onChange={(e) => setDeleteName(e.target.value)} placeholder={branch.name} className="mt-3" />
       </ConfirmDialog>

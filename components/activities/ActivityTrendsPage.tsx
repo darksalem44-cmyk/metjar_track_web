@@ -20,7 +20,7 @@ import {
   weekDelta,
   type TrendPoint,
 } from '@/lib/trends';
-import { fetchAdminAlerts } from '@/lib/notifications';
+import { fetchAdminAlertsResult, type AdminAlert } from '@/lib/notifications';
 import { downloadTextFile, openPrintDocument } from '@/lib/export';
 import { cn } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
@@ -87,16 +87,20 @@ export default function ActivityTrendsPage() {
   const isManager = profile.role === 'manager';
 
   const [loading, setLoading] = useState(isManager);
-  const [alerts, setAlerts] = useState<Awaited<ReturnType<typeof fetchAdminAlerts>>>([]);
+  const [alerts, setAlerts] = useState<AdminAlert[]>([]);
+  const [truncated, setTruncated] = useState(false);
 
   useEffect(() => {
     if (!isManager) return;
     let disposed = false;
     (async () => {
       try {
-        const data = await fetchAdminAlerts({ days: TREND_DAYS, limit: 500 });
-        if (!disposed) setAlerts(data);
-      } catch (e: any) {
+        const res = await fetchAdminAlertsResult({ days: TREND_DAYS, limit: 500 });
+        if (!disposed) {
+          setAlerts(res.alerts);
+          setTruncated(res.truncated);
+        }
+      } catch (e) {
         if (!disposed) toastError(typeof e === 'string' ? e : 'تعذر تحميل الاتجاهات');
       } finally {
         if (!disposed) setLoading(false);
@@ -162,7 +166,9 @@ export default function ActivityTrendsPage() {
     <div className="mx-auto max-w-4xl">
       <PageHeader
         title="اتجاهات النشاط"
-        subtitle={`مقارنة آخر ${TREND_WEEKS} أسابيع • إجمالي ${totals.total} حدثاً`}
+        subtitle={`مقارنة آخر ${TREND_WEEKS} أسابيع • إجمالي ${totals.total} حدثاً${
+          truncated ? ' • الأحدث 500 حدثاً فقط' : ''
+        }`}
         onBack={() => router.pop()}
         action={
           <div className="flex items-center gap-2">

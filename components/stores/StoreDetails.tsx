@@ -9,7 +9,7 @@ import { fetchProductsByStore, countProductsByStore } from '@/lib/data/products'
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import type { Branch, Product } from '@/lib/types';
 import { deleteImageObjects, filterStoredPaths } from '@/lib/supabase';
-import { relativeTime, formatPrice } from '@/lib/utils';
+import { formatDistanceText, relativeTime, formatPrice } from '@/lib/utils';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Chip, Button, CenteredSpinner, EmptyState } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
@@ -26,7 +26,7 @@ import {
   Trash2,
   Wallet,
   Plus,
-  ChevronLeft,
+  ChevronRight,
   Store as StoreIcon,
   Split,
   Package,
@@ -87,7 +87,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
             setLoading(false);
           },
         );
-      } catch (e: any) {
+      } catch (e) {
         if (!disposed) toastError(typeof e === 'string' ? e : 'تعذر تحميل المتجر');
       } finally {
         if (!disposed) setLoading(false);
@@ -98,7 +98,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
     };
   }, [storeId, router]);
 
-  if (loading || !store) return <CenteredSpinner label="جاري تحميل المتاجر..." />;
+  if (loading || !store) return <CenteredSpinner label="جاري تحميل المتجر..." />;
 
   // كل صور المتجر (اللافتة + صور الغلاف) معروضة في معاين واحدة
   const hasSignage = !!store.signageImageUrl;
@@ -107,8 +107,8 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
     ...(store.coverImageUrls ?? []),
   ].filter((x): x is string => !!x);
 
-  const editable = profile.role === 'manager' || canEditStore(profile);
-  const deletable = profile.role === 'manager' || canDeleteStore(profile);
+  const editable = canEditStore(profile);
+  const deletable = canDeleteStore(profile);
 
   const confirmDelete = async () => {
     if (deleteName.trim() !== store.name) {
@@ -131,7 +131,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
       }
       toastSuccess('تم حذف المتجر بنجاح');
       router.pop();
-    } catch (err: any) {
+    } catch (err) {
       toastError(typeof err === 'string' ? err : 'تعذر حذف المتجر');
     } finally {
       setDeleting(false);
@@ -193,7 +193,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
         <Chip tone="neutral" icon={<StoreIcon className="w-3 h-3" />} label="نوع المتجر" />
         {store.category && <Chip tone="primary" label={store.category} />}
         {store.actualDistance && store.actualDistance > 0 && (
-          <Chip tone="orange" icon={<Navigation className="w-3 h-3" />} label={store.actualDistance < 1000 ? `${store.actualDistance.toFixed(0)} م` : `${(store.actualDistance / 1000).toFixed(1)} كم`} />
+          <Chip tone="orange" icon={<Navigation className="w-3 h-3" />} label={formatDistanceText(store.actualDistance)} />
         )}
       </div>
 
@@ -309,7 +309,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
                   </span>
                 </span>
                 <Chip tone={b.isActive ? 'success' : 'warning'} label={b.isActive ? 'نشط' : 'معطّل'} />
-                <ChevronLeft className="w-4 h-4 text-[var(--text-muted)] rotate-180" />
+                <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
               </button>
             ))}
             {editable && branches.length > 0 && (
@@ -382,7 +382,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
         onConfirm={confirmDelete}
       >
         <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
-          سيتم تعطيل المتجر «{store.name}». لن يتم حذف البيانات نهائياً.
+          سيتم تعطيل المتجر «{store.name}». تبقى بياناته في القاعدة لكن صور المتجر ورموز الدفع تُحذف نهائياً ولا يمكن استرجاعها.
         </p>
         <TextField
           label="اكتب اسم المتجر للتأكيد"

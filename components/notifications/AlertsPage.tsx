@@ -10,6 +10,7 @@ import AlertSettingsModal from '@/components/notifications/AlertSettingsModal';
 import { groupNearbyAlerts, type AlertSeverity } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
 import { Button, CenteredSpinner, EmptyState, PageHeader, Toggle } from '@/components/ui/controls';
+import { useNowTick } from '@/components/ui/useNowTick';
 
 const SEVERITY_FILTERS: [AlertSeverity | 'all', string][] = [
   ['all', 'الكل'],
@@ -21,10 +22,11 @@ const SEVERITY_FILTERS: [AlertSeverity | 'all', string][] = [
 export default function AlertsPage() {
   const profile = useProfile();
   const router = useRouter();
-  const { alerts, loading, unread, hiddenByRules, mutedCount, markAllSeen } = useAlerts();
+  const { alerts, loading, unread, hiddenByRules, mutedCount, truncated, markAllSeen } = useAlerts();
   const [severity, setSeverity] = useState<AlertSeverity | 'all'>('all');
   const [grouping, setGrouping] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  useNowTick();
 
   const isManager = profile.role === 'manager';
 
@@ -66,7 +68,9 @@ export default function AlertsPage() {
         subtitle={
           alerts.length === 0
             ? 'لا توجد أحداث حساسة مسجّلة'
-            : `${alerts.length} حدثاً • ${criticalCount} حرج${unread > 0 ? ` • ${unread} غير مقروء` : ''}`
+            : `${alerts.length} حدثاً • ${criticalCount} حرج${unread > 0 ? ` • ${unread} غير مقروء` : ''}${
+                truncated ? ' • تُعرض الأحداث الأحدث فقط' : ''
+              }`
         }
         onBack={() => router.pop()}
         action={

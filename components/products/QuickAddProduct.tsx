@@ -64,7 +64,7 @@ export default function QuickAddProduct({
       setCategory('');
       setIsBestSeller(false);
       onAdded();
-    } catch (e: any) {
+    } catch (e) {
       toastError(typeof e === 'string' ? e : 'تعذر إضافة المنتج');
     } finally {
       setSaving(false);

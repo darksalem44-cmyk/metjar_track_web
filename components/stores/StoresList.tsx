@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import { useProfile } from '@/components/ProfileContext';
-import { fetchStores, canEditStore } from '@/lib/data/stores';
+import { fetchStores, canEditStore, countAllStores } from '@/lib/data/stores';
 import type { Store } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import { toastError } from '@/lib/toast';
-import { Plus, Store as StoreIcon, MapPin, Phone, ChevronLeft } from 'lucide-react';
-import { Button, CenteredSpinner, EmptyState, PaginationFooter } from '@/components/ui/controls';
+import { Plus, Store as StoreIcon, MapPin, Phone, ChevronRight } from 'lucide-react';
+import { formatDistanceText } from '@/lib/utils';
+import { Button, CenteredSpinner, Chip, EmptyState, PaginationFooter } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
 import { ResolvedImage } from '@/components/ui/images';
 
@@ -21,7 +22,19 @@ export default function StoresList() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const fetchedQuery = useRef('');
+  /** عدد الصفحات الكلي المحسوب من count:'exact' — أساس المؤشر المرقّم */
+  const [totalPages, setTotalPages] = useState<number | null>(null);
+  /** الإجمالي الكلي للمتاجر (بدون البحث) — يُعرض في الترويسة */
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const aliveRef = useRef(true);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
   const isMerchant = profile.role === 'merchant';
 
@@ -40,53 +53,67 @@ export default function StoresList() {
               createdBy: isMerchant ? profile.id : undefined,
             }),
           (res) => {
+            if (!aliveRef.current) return;
             setStores(res.items);
             setHasMore(res.hasMore);
             // الكاش يعرض فوراً بلا سبينر، والشبكة تحدّث القائمة بهدوء عند وصولها
             setLoading(false);
           },
         );
-      } catch (e: any) {
+      } catch (e) {
+        if (!aliveRef.current) return;
         toastError(typeof e === 'string' ? e : 'تعذر تحميل المتاجر');
         if (typeof e === 'string' && e.includes('المدير قام بتعطيل حسابك')) return;
       } finally {
-        setLoading(false);
+        if (aliveRef.current) setLoading(false);
       }
     },
     [isMerchant, profile.id],
   );
 
+  // الإجماليات الكلية: عدد الصفحات الكلي للمؤشر المرقّم + عدد المتاجر الكلي للترويسة
+  // (cacheBump('stores') في أي إضافة/تعديل/حذف يبطل المفتاح تلقائياً — لا إجراء إضافي هنا)
   useEffect(() => {
-    // أول فتح: فوري ليعرض الكاش بلا ومضة؛ البحث/الصفحات: مهلة debounce
-    if (fetchedQuery.current === '' && page === 0 && search.trim() === '') {
-      load('', 0);
-      return;
-    }
-    const t = setTimeout(() => {
-      const q = search.trim();
-      if (q !== fetchedQuery.current || page === 0) {
-        fetchedQuery.current = q;
-        setPage(0);
-        load(q, 0);
+    let cancelled = false;
+    (async () => {
+      try {
+        const count = await countAllStores({ createdBy: isMerchant ? profile.id : undefined });
+        if (cancelled) return;
+        setTotalCount(count);
+        setTotalPages(Math.max(1, Math.ceil(count / PAGE_SIZE)));
+      } catch {
+        if (!cancelled) setTotalPages(null); // يبقى الشكل القديم عند فشل العد
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isMerchant, profile.id]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQuery(search.trim());
+      setPage(0);
     }, 400);
     return () => clearTimeout(t);
-  }, [search, load, page]);
+  }, [search]);
 
-  const goToPage = (pg: number) => {
-    setPage(pg);
-    load(fetchedQuery.current, pg);
-  };
+  useEffect(() => {
+    load(debouncedQuery, page);
+  }, [debouncedQuery, page, load]);
 
-  const canAdd = profile.role === 'manager' || canEditStore(profile);
+  const goToPage = (pg: number) => setPage(pg);
+
+  const canAdd = canEditStore(profile);
 
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="text-[18px] font-bold text-[var(--text)]">{isMerchant ? 'متاجري' : 'المتاجر'}</h1>
-          <p className="text-[12px] text-[var(--text-secondary)]">
+          <p className="text-[12px] text-[var(--text-secondary)] flex items-center gap-2">
             {isMerchant ? 'إدارة المتاجر الخاصة بك' : 'استعراض وإدارة جميع المتاجر'}
+            {totalCount !== null && <Chip tone="primary" label={`العدد الكلي: ${totalCount}`} />}
           </p>
         </div>
         {canAdd && (
@@ -143,21 +170,26 @@ export default function StoresList() {
                     )}
                     {s.actualDistance && s.actualDistance > 0 && (
                       <p className="text-[11px] text-[var(--primary)] font-semibold">
-                        {s.actualDistance < 1000
-                          ? `${s.actualDistance.toFixed(0)} م`
-                          : `${(s.actualDistance / 1000).toFixed(1)} كم`}
+                        {formatDistanceText(s.actualDistance)}
                       </p>
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-[var(--border)]">
                     <span className="text-[11px] font-semibold text-[var(--primary)]">استعراض التفاصيل</span>
-                    <ChevronLeft className="w-3.5 h-3.5 text-[var(--primary)] rotate-180" />
+                    <ChevronRight className="w-3.5 h-3.5 text-[var(--primary)]" />
                   </div>
                 </div>
               </button>
             ))}
           </div>
-          <PaginationFooter page={page} hasMore={hasMore} onPrev={() => goToPage(page - 1)} onNext={() => goToPage(page + 1)} />
+          <PaginationFooter
+            page={page}
+            hasMore={hasMore}
+            total={totalPages ?? undefined}
+            onPage={goToPage}
+            onPrev={() => goToPage(page - 1)}
+            onNext={() => goToPage(page + 1)}
+          />
         </>
       )}
     </div>

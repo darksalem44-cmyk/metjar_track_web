@@ -69,7 +69,9 @@ create policy "weekly_reports_select_manager"
 
 -- ─────────────── 3) الجدولة الأسبوعية ───────────────
 -- كل أحد 06:00 UTC = 09:00 بتوقيت دمشق.
--- استبدل <PROJECT_REF> و<CRON_SECRET> بقيمك، وبعد نشر الدالة:
+-- لا تُكتب قيمة السر في المستودع: اضبطه لدى النشر
+--   supabase secrets set CRON_SECRET='<سر عشوائي طويل>'
+-- ثم استبدل <CRON_SECRET> أدناه بقيمة السر نفسها قبل تنفيذ هذا القسم على القاعدة.
 --   supabase functions deploy weekly-alerts-report --no-verify-jwt
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
@@ -86,7 +88,7 @@ select cron.schedule(
     url := 'https://edbzutvunzkfujsatuwb.supabase.co/functions/v1/weekly-alerts-report',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-cron-secret', 'Kinan_Almahainy@123#Metjar_track_web'
+      'x-cron-secret', '<CRON_SECRET>'
     ),
     body := '{}'::jsonb
   );

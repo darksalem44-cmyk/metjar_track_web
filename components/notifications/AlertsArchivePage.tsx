@@ -12,7 +12,7 @@ import {
   archiveFileName,
   buildArchiveReportHtml,
   buildWeeklyArchive,
-  fetchAdminAlerts,
+  fetchAdminAlertsResult,
   fetchWeeklyReports,
   type AdminAlert,
   type WeeklyArchive,
@@ -33,6 +33,7 @@ export default function AlertsArchivePage() {
   const { settings } = useAlerts();
   const isManager = profile.role === 'manager';
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(isManager);
   const [grouping, setGrouping] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -44,9 +45,12 @@ export default function AlertsArchivePage() {
     let disposed = false;
     (async () => {
       try {
-        const data = await fetchAdminAlerts({ days: ARCHIVE_DAYS, limit: 500 });
-        if (!disposed) setAlerts(data);
-      } catch (e: any) {
+        const res = await fetchAdminAlertsResult({ days: ARCHIVE_DAYS, limit: 500 });
+        if (!disposed) {
+          setAlerts(res.alerts);
+          setTruncated(res.truncated);
+        }
+      } catch (e) {
         if (!disposed) toastError(typeof e === 'string' ? e : 'تعذر تحميل الأرشيف');
       } finally {
         if (!disposed) setLoading(false);
@@ -127,7 +131,9 @@ export default function AlertsArchivePage() {
     <div className="mx-auto max-w-3xl">
       <PageHeader
         title="الأرشيف الأسبوعي"
-        subtitle={`ملخص آخر ${ARCHIVE_WEEKS} أسابيع • إجمالي ${alerts.length} حدثاً`}
+        subtitle={`ملخص آخر ${ARCHIVE_WEEKS} أسابيع • إجمالي ${alerts.length} حدثاً${
+          truncated ? ' • تُعرض الأحداث الأحدث فقط' : ''
+        }`}
         onBack={() => router.pop()}
         action={
           <div className="flex items-center gap-2">

@@ -6,10 +6,12 @@ import type {
   ActivityEvent,
   CurrencyCode,
   DailyPoint,
+  EventDetails,
   UserRole,
 } from '@/lib/types';
 import { currencyLabels, translateError } from '@/lib/constants';
 import { formatPrice } from '@/lib/utils';
+import type { Row } from './base';
 
 /** الدور المخزَّن فعلياً في activity_events.actor_role هو واحد من هذه القيم الثلاث فقط. */
 export function normalizeRole(value: string | null | undefined): UserRole {
@@ -29,7 +31,7 @@ function zeroSummary(actorId: string): ActorSummary {
   };
 }
 
-function mapSummary(row: any): ActorSummary {
+function mapSummary(row: Row): ActorSummary {
   // حقول دالة get_activity_actor_summary كما يقرؤها تطبيق الموبايل
   return {
     actor_id: row.actor_id,
@@ -43,7 +45,11 @@ function mapSummary(row: any): ActorSummary {
   };
 }
 
-function mapEvent(row: any): ActivityEvent {
+/** الأعمدة التي يقرؤها mapEvent — events بدون حددّها يسحب كل الأعمدة. */
+const EVENT_SELECT =
+  'id, actor_id, actor_role, event_action, entity_type, entity_id, entity_name, event_at, details';
+
+function mapEvent(row: Row): ActivityEvent {
   return {
     id: row.id,
     actorId: row.actor_id ?? undefined,
@@ -81,7 +87,7 @@ export async function getActorSummaries(opts: {
   });
   if (error) throw translateError(error);
   const result: Record<string, ActorSummary> = {};
-  for (const row of (data as any[]) ?? []) {
+  for (const row of (data as Row[]) ?? []) {
     const s = mapSummary(row);
     result[s.actor_id] = s;
   }
@@ -91,6 +97,9 @@ export async function getActorSummaries(opts: {
 /** سقف أمان لعدد الصفوف في الحساب المحلي الاحتياطي (وضع «الكل» قد يغطي سنوات). */
 const MAX_SCAN_ROWS = 20000;
 const SCAN_PAGE = 1000;
+const SCAN_MAX_PAGES = 20;
+/** حجم دفعة المعرّفات في عامل التصفية — يبعث رابط الطلب ضمن حدود الخادم. */
+const ACTOR_CHUNK = 80;
 
 /**
  * شبكة أمان: تجميع الملخصات محلياً من جدول activity_events.
@@ -101,35 +110,40 @@ async function summarizeFromEvents(
   actorIds: string[],
   opts: { from: Date; to: Date },
 ): Promise<Record<string, ActorSummary>> {
-  const wanted = new Set(actorIds);
   const result: Record<string, ActorSummary> = {};
-  if (wanted.size === 0) return result;
-
-  const query = supabase
-    .from('activity_events')
-    .select('actor_id, event_action, entity_type')
-    .gte('event_at', toIso(opts.from))
-    .lt('event_at', toIso(opts.to));
+  if (actorIds.length === 0) return result;
 
   let scanned = 0;
-  while (scanned < MAX_SCAN_ROWS) {
-    const { data, error } = await query.range(scanned, scanned + SCAN_PAGE - 1);
-    if (error) throw translateError(error);
-    const rows = (data as any[]) ?? [];
-    for (const row of rows) {
-      const id = row.actor_id;
-      if (!id || !wanted.has(id)) continue;
-      const s = (result[id] ??= zeroSummary(id));
-      s.total += 1;
-      if (row.event_action === 'created') s.created += 1;
-      else if (row.event_action === 'updated') s.updated += 1;
-      else if (row.event_action === 'deleted') s.deleted += 1;
-      if (row.entity_type === 'store') s.stores += 1;
-      else if (row.entity_type === 'branch') s.branches += 1;
-      else if (row.entity_type === 'product') s.products += 1;
+  for (let i = 0; i < actorIds.length; i += ACTOR_CHUNK) {
+    const chunk = actorIds.slice(i, i + ACTOR_CHUNK);
+    const query = supabase
+      .from('activity_events')
+      .select('actor_id, event_action, entity_type')
+      .in('actor_id', chunk)
+      .gte('event_at', toIso(opts.from))
+      .lt('event_at', toIso(opts.to))
+      .order('id');
+
+    for (let page = 0; page < SCAN_MAX_PAGES && scanned < MAX_SCAN_ROWS; page++) {
+      const offset = page * SCAN_PAGE;
+      const { data, error } = await query.range(offset, offset + SCAN_PAGE - 1);
+      if (error) throw translateError(error);
+      const rows = (data ?? []) as Row[];
+      for (const row of rows) {
+        const id = row.actor_id;
+        if (!id) continue;
+        const s = (result[id] ??= zeroSummary(id));
+        s.total += 1;
+        if (row.event_action === 'created') s.created += 1;
+        else if (row.event_action === 'updated') s.updated += 1;
+        else if (row.event_action === 'deleted') s.deleted += 1;
+        if (row.entity_type === 'store') s.stores += 1;
+        else if (row.entity_type === 'branch') s.branches += 1;
+        else if (row.entity_type === 'product') s.products += 1;
+      }
+      scanned += rows.length;
+      if (rows.length < SCAN_PAGE) break;
     }
-    scanned += rows.length;
-    if (rows.length < SCAN_PAGE) break;
   }
   return result;
 }
@@ -201,7 +215,7 @@ export async function getActorDaily(opts: {
   // activity_day / entity_type / event_action / activity_count
   // — نجمعها حسب اليوم ليعمل مخطط الأعمدة الثلاثي.
   const byDay = new Map<string, DailyPoint>();
-  for (const row of data as any[]) {
+  for (const row of data as Row[]) {
     const day = String(row.activity_day ?? '').slice(0, 10);
     if (!day) continue;
     const p = byDay.get(day) ?? { day, created: 0, updated: 0, deleted: 0, total: 0 };
@@ -231,7 +245,7 @@ export async function getTimeline(opts: {
 }): Promise<ActivityEvent[]> {
   let builder = supabase
     .from('activity_events')
-    .select()
+    .select(EVENT_SELECT)
     .eq('actor_id', opts.actorId)
     .gte('event_at', toIso(opts.from))
     .lt('event_at', toIso(opts.to));
@@ -269,8 +283,8 @@ export const entityActionIcons: Record<ActivityEntityType, string> = {
  * عمود details يخزّن لقطة بيانات الكيان لحظة الحدث من مشغّلات قاعدة البيانات.
  * بعض الصفوف القديمة قد تصل كنص JSON — نتعامل معها بأمان مثل تطبيق الموبايل.
  */
-export function readEventDetails(value: any): Record<string, any> {
-  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+export function readEventDetails(value: unknown): EventDetails {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as EventDetails;
   if (typeof value === 'string') {
     try {
       const parsed = JSON.parse(value);
@@ -352,7 +366,7 @@ function detailLabel(key: string): string {
 }
 
 /** تنسيق قيمة الحقل للعرض (bool، مصفوفة، سعر مع عملته، وقت HH:MM). */
-function formatDetailValue(key: string, value: unknown, details: Record<string, any>): string {
+function formatDetailValue(key: string, value: unknown, details: EventDetails): string {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'boolean') return value ? 'نعم' : 'لا';
   if (Array.isArray(value)) return value.length === 0 ? '—' : `${value.length} عنصر`;
@@ -383,7 +397,7 @@ const briefKeysByEntity: Record<ActivityEntityType, string[]> = {
 };
 
 /** سطر مختصر يوضح ما تغيّر فعلاً في الحدث، مثل «العنوان: دمشق». */
-export function eventBriefDetail(rawDetails: any, entityType: ActivityEntityType): string {
+export function eventBriefDetail(rawDetails: unknown, entityType: ActivityEntityType): string {
   const details = readEventDetails(rawDetails);
   for (const key of briefKeysByEntity[entityType] ?? []) {
     const value = formatDetailValue(key, details[key], details);
@@ -398,7 +412,7 @@ export function eventBriefDetail(rawDetails: any, entityType: ActivityEntityType
 }
 
 /** كل الحقول المعروضة في ورقة «تفاصيل النشاط»، مرتّبة وتسمياتها عربية. */
-export function eventDetailFields(rawDetails: any): { label: string; value: string }[] {
+export function eventDetailFields(rawDetails: unknown): { label: string; value: string }[] {
   const details = readEventDetails(rawDetails);
   const keys = Object.keys(details).filter((k) => !hiddenDetailKeys.has(k));
   const ordered = [
@@ -411,7 +425,7 @@ export function eventDetailFields(rawDetails: any): { label: string; value: stri
 }
 
 /** اسم الكيان من الحدث، ويرجع لـ details.name إذا كان entity_name فارغاً (مثل الموبايل). */
-export function eventName(ev: { entityName?: string; details?: any }): string {
+export function eventName(ev: { entityName?: string; details?: EventDetails }): string {
   const direct = (ev.entityName ?? '').trim();
   if (direct) return direct;
   return String(readEventDetails(ev.details)['name'] ?? '').trim();
@@ -432,7 +446,7 @@ export function eventPhrase(ev: {
   action: ActivityAction;
   entityType: ActivityEntityType;
   entityName?: string;
-  details?: any;
+  details?: EventDetails;
 }): string {
   const name = eventName(ev);
   return `${actionLabel(ev.action)} ${entityTargetLabel(ev.entityType)}${name ? ` «${name}»` : ''}`;
