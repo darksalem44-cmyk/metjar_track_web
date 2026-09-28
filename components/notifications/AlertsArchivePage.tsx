@@ -157,7 +157,7 @@ export default function AlertsArchivePage() {
         }
       />
 
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 mb-4">
+      <div className="flex items-center justify-between gap-3 card px-3.5 py-2.5 mb-4">
         <div className="min-w-0">
           <p className="text-[12px] font-semibold text-[var(--text)]">دمج الأحداث المتقاربة</p>
           <p className="text-[10.5px] text-[var(--text-secondary)]">
@@ -180,7 +180,7 @@ export default function AlertsArchivePage() {
             {reports.map((report) => (
               <div
                 key={report.id}
-                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 flex items-start gap-3"
+                className="card p-3.5 flex items-start gap-3"
               >
                 <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center shrink-0">
                   <FileSpreadsheet className="w-4 h-4" />
@@ -241,19 +241,19 @@ export default function AlertsArchivePage() {
             return (
               <div
                 key={week.key}
-                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden"
+                className="card overflow-hidden"
               >
                 <button
                   type="button"
                   onClick={() => toggle(week.key)}
-                  className="w-full text-start px-3.5 py-3 flex items-center gap-3 hover:bg-[var(--surface-variant)] transition-colors"
+                  className="w-full text-start px-3.5 py-3 flex items-center gap-3 hover:bg-[var(--surface-variant)] transition-[background-color]"
                 >
                   <span
                     className={cn(
-                      'w-9 h-9 rounded-xl grid place-items-center shrink-0',
+                      'w-9 h-9 rounded-[12px] grid place-items-center shrink-0 border',
                       week.critical > 0
-                        ? 'bg-[var(--error)]/10 text-[var(--error)]'
-                        : 'bg-[var(--primary-surface-light)] text-[var(--primary)]',
+                        ? 'bg-[var(--error)]/10 text-[var(--error)] border-[var(--error)]/22'
+                        : 'bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--brand-700)] border-[var(--primary)]/18',
                     )}
                   >
                     <CalendarRange className="w-4 h-4" />

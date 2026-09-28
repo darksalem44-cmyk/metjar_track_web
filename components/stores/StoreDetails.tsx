@@ -178,9 +178,9 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
         <button
           type="button"
           onClick={() => setViewerIndex(0)}
-          className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--surface-variant)] mb-5 h-56 w-full block cursor-zoom-in"
+          className="group card anim-enter overflow-hidden mb-5 h-56 w-full block cursor-zoom-in"
         >
-          <ResolvedImage src={store.signageImageUrl ?? store.coverImageUrls[0]} alt={store.name} className="w-full h-full" />
+          <ResolvedImage src={store.signageImageUrl ?? store.coverImageUrls[0]} alt={store.name} className="w-full h-full transition-transform duration-[var(--dur-3)] ease-[var(--ease-out)] group-hover:scale-[1.03]" />
         </button>
       ) : (
         <div className="rounded-2xl overflow-hidden border border-[var(--border)] bg-[var(--surface-variant)] mb-5 h-56">
@@ -224,7 +224,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
 
       {/* المحافظ */}
       {(store.shamcashWalletId || store.shamcashQrImageUrl || store.paymeraWalletId || store.paymeraQrImageUrl) && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] mb-5 overflow-hidden">
+        <div className="card mb-5 overflow-hidden">
           <button
             onClick={() => setShowWallets(!showWallets)}
             className="w-full flex items-center justify-between p-4"
@@ -250,11 +250,11 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
 
       {/* الحقول المخصصة */}
       {Object.keys(store.customFields ?? {}).length > 0 && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 mb-5">
+        <div className="card p-4 mb-5">
           <h3 className="text-[13px] font-bold text-[var(--text)] mb-3">بيانات إضافية</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {Object.entries(store.customFields).map(([k, v]) => (
-              <div key={k} className="rounded-lg bg-[var(--input)] border border-[var(--border)] px-3 py-2">
+              <div key={k} className="rounded-[12px] bg-[var(--input)] border border-[var(--border)] px-3 py-2">
                 <p className="text-[11px] text-[var(--text-secondary)]">{k}</p>
                 <p className="text-[13px] font-semibold text-[var(--text)] break-words">{String(v)}</p>
               </div>
@@ -264,14 +264,14 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
       )}
 
       {store.notes && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 mb-5">
+        <div className="card p-4 mb-5">
           <h3 className="text-[13px] font-bold text-[var(--text)] mb-1.5">ملاحظات</h3>
           <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">{store.notes}</p>
         </div>
       )}
 
       {/* الفروع */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] mb-5 overflow-hidden">
+      <div className="card mb-5 overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
           <span className="flex items-center gap-2 text-[14px] font-bold text-[var(--text)]">
             <Split className="w-4 h-4 text-[var(--primary)]" />
@@ -297,7 +297,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
               <button
                 key={b.id}
                 onClick={() => router.push({ name: 'branch-details', storeId: store.id, branchId: b.id })}
-                className="w-full flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-start hover:border-[var(--primary-light)]"
+                className="w-full flex items-center gap-3 card card-hover rounded-[12px] p-3 text-start"
               >
                 <span className="grid place-items-center w-9 h-9 rounded-lg bg-[var(--primary-surface)] text-[var(--primary)] shrink-0">
                   <Split className="w-4 h-4" />
@@ -322,7 +322,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
       </div>
 
       {/* المنتجات */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] mb-5 overflow-hidden">
+      <div className="card mb-5 overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
           <span className="flex items-center gap-2 text-[14px] font-bold text-[var(--text)]">
             <Package className="w-4 h-4 text-[var(--accent)]" />
@@ -353,7 +353,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
               <button
                 key={p.id}
                 onClick={() => router.push({ name: 'product-details', productId: p.id })}
-                className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 text-start hover:border-[var(--primary-light)]"
+                className="flex items-center gap-3 card card-hover rounded-[12px] p-2.5 text-start"
               >
                 <div className="w-12 h-12 rounded-lg overflow-hidden bg-[var(--surface-variant)] shrink-0">
                   <ResolvedImage src={p.imageUrls[0]} alt={p.name} className="w-full h-full" />
@@ -425,7 +425,7 @@ function ImageGallery({ images, index, onClose }: { images: string[]; index: num
 
 function InfoTile({ icon, label, value, copy }: { icon: React.ReactNode; label: string; value: React.ReactNode; copy?: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
+    <div className="flex items-start gap-3 card rounded-[12px] px-3.5 py-3">
       <span className="grid place-items-center w-8 h-8 rounded-lg bg-[var(--primary-surface-light)] text-[var(--primary)] shrink-0">
         {icon}
       </span>
@@ -442,11 +442,11 @@ function InfoTile({ icon, label, value, copy }: { icon: React.ReactNode; label: 
 
 function WalletTile({ name, walletId, qr }: { name: string; walletId: string; qr?: string }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--input)] p-3">
+    <div className="rounded-[14px] border border-[var(--border)] bg-[var(--input)] p-3 shadow-[var(--shadow-xs)]">
       <p className="text-[13px] font-bold text-[var(--text)]">{name}</p>
       <p className="text-[12px] text-[var(--text-secondary)] mt-0.5" dir="ltr">{walletId}</p>
       {qr && (
-        <div className="mt-2 w-20 h-20 rounded-lg bg-white p-0.5 overflow-hidden">
+        <div className="mt-2 w-20 h-20 rounded-[10px] bg-white p-0.5 overflow-hidden ring-1 ring-[var(--border)]">
           <ResolvedImage src={qr} alt={`${name} QR`} className="w-full h-full" />
         </div>
       )}

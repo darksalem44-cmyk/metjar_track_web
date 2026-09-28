@@ -8,7 +8,7 @@ import type { Store } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import { toastError } from '@/lib/toast';
-import { Plus, Store as StoreIcon, MapPin, Phone, ChevronRight } from 'lucide-react';
+import { Plus, Store as StoreIcon, MapPin, Phone, ChevronLeft } from 'lucide-react';
 import { formatDistanceText } from '@/lib/utils';
 import { Button, CenteredSpinner, Chip, EmptyState, PaginationFooter } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
@@ -148,10 +148,10 @@ export default function StoresList() {
               <button
                 key={s.id}
                 onClick={() => router.push({ name: 'store-details', storeId: s.id })}
-                className="text-start rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden hover:border-[var(--primary-light)] hover:shadow-sm transition-all"
+                className="anim-enter group text-start card card-hover overflow-hidden"
               >
-                <div className="h-32 bg-[var(--surface-variant)]">
-                  <ResolvedImage src={s.coverImageUrls[0] ?? s.signageImageUrl} alt={s.name} className="w-full h-full" />
+                <div className="h-32 bg-[var(--surface-variant)] overflow-hidden">
+                  <ResolvedImage src={s.coverImageUrls[0] ?? s.signageImageUrl} alt={s.name} className="w-full h-full transition-transform duration-[var(--dur-3)] ease-[var(--ease-out)] group-hover:scale-[1.04]" />
                 </div>
                 <div className="p-3.5">
                   <p className="text-[14px] font-bold text-[var(--text)] truncate">{s.name}</p>
@@ -176,7 +176,7 @@ export default function StoresList() {
                   </div>
                   <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-[var(--border)]">
                     <span className="text-[11px] font-semibold text-[var(--primary)]">استعراض التفاصيل</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-[var(--primary)]" />
+                    <ChevronLeft className="w-3.5 h-3.5 text-[var(--primary)] transition-transform duration-[var(--dur-2)] ease-[var(--ease-out)] group-hover:-translate-x-1" />
                   </div>
                 </div>
               </button>

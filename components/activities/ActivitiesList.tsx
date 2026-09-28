@@ -176,10 +176,10 @@ export default function ActivitiesList() {
               key={p.value}
               onClick={() => setRange(p.value)}
               className={cn(
-                'px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap',
+                'pill',
                 range === p.value
-                  ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]'
-                  : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--border-light)]',
+                  ? 'pill-on'
+                  : '',
               )}
             >
               {p.label}
@@ -190,19 +190,19 @@ export default function ActivitiesList() {
 
       {/* بطاقات الإحصاء العامة */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+        <div className="card p-3 text-center">
           <p className="text-[20px] font-bold text-[var(--primary)] leading-none">{stats.total}</p>
           <p className="text-[10.5px] text-[var(--text-secondary)] mt-1.5">إجمالي الأحداث</p>
         </div>
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+        <div className="card p-3 text-center">
           <p className="text-[20px] font-bold text-[var(--green)] leading-none">{stats.created}</p>
           <p className="text-[10.5px] text-[var(--text-secondary)] mt-1.5">إضافات</p>
         </div>
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+        <div className="card p-3 text-center">
           <p className="text-[20px] font-bold text-[var(--text)] leading-none">{stats.updated}</p>
           <p className="text-[10.5px] text-[var(--text-secondary)] mt-1.5">تعديلات</p>
         </div>
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+        <div className="card p-3 text-center">
           <p className="text-[20px] font-bold text-[var(--error)] leading-none">{stats.deleted}</p>
           <p className="text-[10.5px] text-[var(--text-secondary)] mt-1.5">حذف</p>
         </div>
@@ -210,7 +210,7 @@ export default function ActivitiesList() {
 
       {/* المخطط العام + رابط الاتجاهات (للمدير) */}
       {overview.length > 0 && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 mb-4">
+        <div className="card p-4 mb-4">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="text-[13px] font-bold text-[var(--text)] flex items-center gap-1.5">
               <CalendarRange className="w-4 h-4 text-[var(--primary)]" />
@@ -245,10 +245,10 @@ export default function ActivitiesList() {
             key={value}
             onClick={() => setRoleFilter(value)}
             className={cn(
-              'px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap',
+              'pill',
               roleFilter === value
-                ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]'
-                : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--border-light)]',
+                ? 'pill-on'
+                : '',
             )}
           >
             {label}
@@ -263,10 +263,10 @@ export default function ActivitiesList() {
             key={opt.value}
             onClick={() => setStatusFilter(opt.value)}
             className={cn(
-              'px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap',
+              'pill',
               statusFilter === opt.value
-                ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]'
-                : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--border-light)]',
+                ? 'pill-on'
+                : '',
             )}
           >
             {opt.label}
@@ -289,7 +289,7 @@ export default function ActivitiesList() {
               key={actor.id}
               type="button"
               onClick={() => go(actor)}
-              className="w-full text-start rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 hover:border-[var(--border-light)] transition-colors"
+              className="w-full text-start card p-4 hover:border-[var(--border-light)] transition-colors"
             >
               <div className="flex items-center gap-3">
                 <Avatar name={actor.fullName} size={42} />

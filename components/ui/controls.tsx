@@ -26,27 +26,27 @@ export function Button({
 }: ButtonProps) {
   const variants: Record<ButtonVariant, string> = {
     primary:
-      'bg-[var(--primary)] text-[var(--on-primary)] hover:opacity-90 active:opacity-80 shadow-sm',
+      'btn-brand',
     secondary:
-      'bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] hover:bg-[var(--primary-surface-light)]',
+      'bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] border border-[var(--primary)]/18 hover:bg-[var(--primary-surface-light)] hover:border-[var(--primary)]/32 active:scale-[0.985]',
     outline:
-      'bg-transparent text-[var(--text)] border border-[var(--border-light)] hover:bg-[var(--surface-variant)]',
+      'bg-transparent text-[var(--text)] border border-[var(--border-light)] hover:bg-[var(--surface-variant)] hover:border-[var(--text-muted)]/45 active:scale-[0.985]',
     surface:
-      'bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] shadow-sm hover:bg-[var(--surface-variant)]',
+      'btn-quiet',
     danger:
-      'bg-[var(--error)] text-[var(--on-error)] hover:opacity-90 active:opacity-80 shadow-sm',
+      'bg-[var(--error)] text-[var(--on-error)] shadow-[var(--shadow-sm)] hover:bg-[var(--error-dark)] active:scale-[0.985]',
     ghost:
-      'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]',
+      'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] active:scale-[0.985]',
   };
   const sizes = {
     sm: 'h-8 px-3 text-[12px] rounded-lg gap-1.5',
     md: 'h-10 px-4 text-[13px] rounded-xl gap-2',
-    lg: 'h-12 px-6 text-[14px] rounded-xl gap-2',
+    lg: 'h-12 px-6 text-[14px] rounded-[14px] gap-2',
   };
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap select-none',
+        'inline-flex items-center justify-center font-semibold transition-[background-color,color,box-shadow,border-color,transform,opacity] duration-[var(--dur-1)] ease-[var(--ease-out)] disabled:opacity-45 disabled:pointer-events-none whitespace-nowrap select-none',
         variants[variant],
         sizes[size],
         className,
@@ -66,7 +66,7 @@ export function Spinner({ size = 24, className }: { size?: number; className?: s
 
 export function CenteredSpinner({ label }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3">
+    <div className="anim-fade flex flex-col items-center justify-center py-16 gap-3">
       <Spinner size={28} />
       {label && <p className="text-[13px] text-[var(--text-secondary)]">{label}</p>}
     </div>
@@ -76,14 +76,14 @@ export function CenteredSpinner({ label }: { label?: string }) {
 type ChipTone = 'primary' | 'success' | 'accent' | 'warning' | 'neutral' | 'purple' | 'orange' | 'error';
 
 const chipTones: Record<ChipTone, string> = {
-  primary: 'bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] border-[var(--primary-light)]',
-  success: 'bg-[var(--green)]/15 text-[var(--green)] border-[var(--green)]/40',
-  accent: 'bg-[var(--accent-surface)] text-[var(--accent-text)] border-[var(--accent)]/40',
-  warning: 'bg-[var(--warning-surface)] text-[var(--warning)] border-[var(--warning)]/40',
+  primary: 'bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] border-[var(--primary)]/25',
+  success: 'bg-[var(--green)]/12 text-[var(--green)] border-[var(--green)]/35',
+  accent: 'bg-[var(--accent-surface)] text-[var(--accent-text)] border-[var(--accent)]/35',
+  warning: 'bg-[var(--warning-surface)] text-[var(--warning)] border-[var(--warning)]/35',
   neutral: 'bg-[var(--surface-variant)] text-[var(--text-secondary)] border-[var(--border-light)]',
-  purple: 'bg-[var(--purple-light)] text-[var(--purple)] border-[var(--purple)]/40',
-  orange: 'bg-[var(--orange-light)] text-[var(--orange)] border-[var(--orange)]/40',
-  error: 'bg-[var(--error)]/10 text-[var(--error)] border-[var(--error)]/40',
+  purple: 'bg-[var(--purple-light)] text-[var(--purple)] border-[var(--purple)]/35',
+  orange: 'bg-[var(--orange-light)] text-[var(--orange)] border-[var(--orange)]/35',
+  error: 'bg-[var(--error)]/10 text-[var(--error)] border-[var(--error)]/35',
 };
 
 const toneText: Record<ChipTone, string> = {
@@ -111,7 +111,7 @@ export function Chip({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-[3px] text-[11px] font-semibold leading-tight tnum',
         chipTones[tone],
         className,
       )}
@@ -143,14 +143,16 @@ export function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative inline-flex items-center rounded-full transition-colors disabled:opacity-40 disabled:pointer-events-none shrink-0',
+        'relative inline-flex items-center rounded-full transition-[background-color,border-color,box-shadow] duration-[var(--dur-2)] ease-[var(--ease-out)] disabled:opacity-40 disabled:pointer-events-none shrink-0',
         dims,
-        checked ? 'bg-[var(--primary)]' : 'bg-[var(--surface-variant)] border border-[var(--border-light)]',
+        checked
+          ? 'bg-[image:var(--primary-gradient)] shadow-[var(--shadow-brand)]'
+          : 'bg-[var(--surface-variant)] border border-[var(--border-light)] shadow-[var(--shadow-xs)]',
       )}
     >
       <span
         className={cn(
-          'absolute top-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-[var(--surface)] shadow transition-all',
+          'absolute top-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-[var(--surface-raised)] shadow-[0_1px_3px_rgba(0,0,0,0.28)] transition-[right,transform] duration-[var(--dur-2)] ease-[var(--ease-spring)]',
           knob,
           checked ? 'right-0.5' : 'right-[calc(100%-2px)] translate-x-full',
           // RTL: toggle knob moves from right
@@ -172,14 +174,14 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-14 px-6 text-center gap-3">
+    <div className="anim-fade flex flex-col items-center justify-center py-14 px-6 text-center gap-3">
       {icon && (
-        <div className="grid place-items-center w-14 h-14 rounded-full bg-[var(--surface-variant)] text-[var(--text-muted)]">
+        <div className="grid place-items-center w-16 h-16 rounded-full bg-[var(--surface-variant)] text-[var(--text-muted)] border border-[var(--border)] shadow-[var(--shadow-xs)] [&>svg]:w-7 [&>svg]:h-7">
           {icon}
         </div>
       )}
-      <p className="text-[15px] font-semibold text-[var(--text)]">{title}</p>
-      {subtitle && <p className="text-[13px] text-[var(--text-secondary)] max-w-xs">{subtitle}</p>}
+      <p className="text-[15px] font-bold text-[var(--text)]">{title}</p>
+      {subtitle && <p className="text-[13px] text-[var(--text-secondary)] max-w-xs leading-relaxed">{subtitle}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>
   );
@@ -261,10 +263,10 @@ export function NumbersPaginationFooter({
               disabled={loading}
               aria-current={p === current ? 'page' : undefined}
               className={cn(
-                'min-w-8 h-8 px-2 rounded-lg text-[12px] font-semibold transition-colors',
+                'min-w-8 h-8 px-2 rounded-lg text-[12px] font-semibold tnum transition-[background-color,color,box-shadow,border-color,transform] duration-[var(--dur-1)] ease-[var(--ease-out)]',
                 p === current
-                  ? 'bg-[var(--primary)] text-[var(--on-primary)] shadow-sm'
-                  : 'bg-[var(--surface)] border border-[var(--border-light)] text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]',
+                  ? 'bg-[image:var(--primary-gradient)] text-[var(--on-primary)] shadow-[var(--shadow-brand)]'
+                  : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] hover:border-[var(--border-light)] active:scale-[0.96]',
               )}
             >
               {p}
@@ -289,7 +291,7 @@ export function NumbersPaginationFooter({
             }}
             placeholder="1"
             dir="ltr"
-            className="w-16 h-7 text-center rounded-lg border border-[var(--border)] bg-[var(--input)] text-[12px] text-[var(--text)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-16 h-7 text-center rounded-lg field bg-[var(--surface)] px-1 text-[12px] text-[var(--text)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <span>من {safeTotal}</span>
           <Button variant="ghost" size="sm" onClick={submitJump} disabled={loading}>
@@ -356,14 +358,14 @@ export function PageHeader({
   trailing?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 mb-5">
+    <div className="anim-fade flex items-center justify-between gap-3 mb-5">
       <div className="flex items-center gap-3 min-w-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
             aria-label="رجوع"
-            className="grid place-items-center w-9 h-9 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]"
+            className="grid place-items-center w-9 h-9 rounded-[12px] btn-quiet active:scale-[0.94]"
           >
             <svg
               width="16"
@@ -381,8 +383,8 @@ export function PageHeader({
           </button>
         )}
         <div className="min-w-0">
-          <h1 className="text-[16px] font-bold text-[var(--text)] truncate">{title}</h1>
-          {subtitle && <p className="text-[12px] text-[var(--text-secondary)] truncate">{subtitle}</p>}
+          <h1 className="text-[17px] font-bold tracking-[-0.01em] text-[var(--text)] truncate">{title}</h1>
+          {subtitle && <p className="text-[12px] text-[var(--text-secondary)] truncate mt-0.5">{subtitle}</p>}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -405,9 +407,18 @@ export function StatCard({
   tint?: ChipTone;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-4 gap-1.5">
-      {icon && <span className="text-[var(--text-muted)]">{icon}</span>}
-      <span className={cn('text-[20px] font-bold leading-none', tint ? toneText[tint] : 'text-[var(--text)]')}>
+    <div className="card card-hover anim-enter flex flex-col items-center justify-center px-3 py-4 gap-2">
+      {icon && (
+        <span
+          className={cn(
+            'grid place-items-center w-9 h-9 rounded-[12px] transition-colors',
+            tint ? chipTones[tint] + ' border' : 'text-[var(--text-muted)] bg-[var(--surface-variant)]',
+          )}
+        >
+          {icon}
+        </span>
+      )}
+      <span className={cn('text-[22px] font-bold leading-none tracking-[-0.02em] tnum', tint ? toneText[tint] : 'text-[var(--text)]')}>
         {value}
       </span>
       <span className="text-[11px] text-[var(--text-secondary)]">{label}</span>
@@ -425,15 +436,15 @@ export function InfoCard({
   value?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
+    <div className="card card-hover anim-enter flex items-start gap-3 px-3.5 py-3">
       {icon && (
-        <span className="grid place-items-center w-8 h-8 rounded-lg bg-[var(--primary-surface-light)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] shrink-0">
+        <span className="grid place-items-center w-9 h-9 rounded-[11px] bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] border border-[var(--primary)]/18 shrink-0">
           {icon}
         </span>
       )}
       <div className="min-w-0">
         <p className="text-[11px] text-[var(--text-secondary)]">{label}</p>
-        {value !== undefined && <p className="text-[13px] font-semibold text-[var(--text)] break-words">{value}</p>}
+        {value !== undefined && <p className="text-[13px] font-semibold text-[var(--text)] break-words mt-0.5">{value}</p>}
       </div>
     </div>
   );
@@ -450,7 +461,7 @@ export function Avatar({
   return (
     <span
       style={{ width: size, height: size }}
-      className="grid place-items-center rounded-full bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] font-bold"
+      className="grid place-items-center rounded-full bg-[image:var(--primary-gradient)] text-[var(--on-primary)] font-bold shadow-[var(--shadow-xs)] ring-1 ring-[var(--primary)]/18"
     >
       {initial}
     </span>

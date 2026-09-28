@@ -48,7 +48,6 @@ export default function ProfilePage() {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const { canInstall, install } = useInstall();
   const standalone = useSyncExternalStore(subscribeDisplayMode, isStandalone, () => false);
-  const isManager = profile.role === 'manager';
   const isMerchant = profile.role === 'merchant';
 
   // الإجماليات الكلية للمتاجر والمنتجات — للمدير الكل، وللتاجر متاجره فقط
@@ -137,7 +136,7 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-2xl">
       <PageHeader title="الملف الشخصي" />
 
-      <div className="flex items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 mb-5">
+      <div className="flex items-center gap-4 card p-5 mb-5">
         <Avatar name={displayName} size={64} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -178,7 +177,7 @@ export default function ProfilePage() {
       </div>
 
       <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">المظهر</h3>
-      <div className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 mb-6">
+      <div className="flex items-center justify-between card px-4 py-3.5 mb-6">
         <div>
           <p className="text-[13px] font-semibold text-[var(--text)]">الوضع الليلي</p>
           <p className="text-[11px] text-[var(--text-secondary)]">تفعيل الألوان الداكنة</p>
@@ -187,7 +186,7 @@ export default function ProfilePage() {
       </div>
 
       {!standalone && (
-        <div className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 mb-6">
+        <div className="flex items-center justify-between card px-4 py-3.5 mb-6">
           <div className="flex items-center gap-3">
             <span className="grid place-items-center w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)]">
               <Smartphone className="w-4 h-4" />
@@ -213,19 +212,19 @@ export default function ProfilePage() {
         <>
           <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">لوحة الإدارة</h3>
           <div className="grid grid-cols-1 gap-2.5 mb-6">
-            <button onClick={() => router.push({ name: 'employees' })} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
+            <button onClick={() => router.push({ name: 'employees' })} className="card p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
               <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center"><UserIcon className="w-4 h-4" /></span>
               <span className="text-[13px] font-bold text-[var(--text)]">إدارة الموظفين</span>
             </button>
-            <button onClick={() => router.push({ name: 'merchants' })} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
+            <button onClick={() => router.push({ name: 'merchants' })} className="card p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
               <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center"><UserIcon className="w-4 h-4" /></span>
               <span className="text-[13px] font-bold text-[var(--text)]">إدارة التجار</span>
             </button>
-            <button onClick={() => router.push({ name: 'accounts' })} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
+            <button onClick={() => router.push({ name: 'accounts' })} className="card p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
               <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center"><Shield className="w-4 h-4" /></span>
               <span className="text-[13px] font-bold text-[var(--text)]">حسابات الفريق (إعادة تعيين كلمات المرور)</span>
             </button>
-            <button onClick={() => router.push({ name: 'backup' })} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
+            <button onClick={() => router.push({ name: 'backup' })} className="card p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">
               <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center"><HardDriveDownload className="w-4 h-4" /></span>
               <span className="text-[13px] font-bold text-[var(--text)]">النسخ الاحتياطي (تصدير البيانات)</span>
             </button>
@@ -234,7 +233,7 @@ export default function ProfilePage() {
       )}
 
       <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">تغيير كلمة المرور</h3>
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3 mb-6">
+      <div className="card p-4 space-y-3 mb-6">
         <TextField label="كلمة المرور الحالية" type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" />
         <TextField label="كلمة المرور الجديدة" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="8 محارف على الأقل" />
         <TextField label="تأكيد كلمة المرور" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" error={pwError} />

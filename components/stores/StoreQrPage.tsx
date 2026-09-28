@@ -38,7 +38,7 @@ export default function StoreQrPage({ storeId }: { storeId: string }) {
   return (
     <div className="mx-auto max-w-md">
       <PageHeader title="رمز QR" subtitle={storeName} onBack={() => router.pop()} />
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 flex flex-col items-center">
+      <div className="card p-6 flex flex-col items-center">
         {hasRegister ? (
           <QrDisplay url={url} withActions />
         ) : (

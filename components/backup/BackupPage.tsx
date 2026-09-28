@@ -200,7 +200,7 @@ export default function BackupPage() {
         subtitle="نسخة كاملة من بيانات المتجر إلى Google Drive"
       />
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 mb-5">
+      <div className="card p-4 mb-5">
         <div className="flex items-center gap-2 mb-2">
           <span className="grid place-items-center w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)]">
             <CloudUpload className="w-4 h-4" />
@@ -244,7 +244,7 @@ export default function BackupPage() {
               {job.totalItems > 0 && (
                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-variant)]">
                   <div
-                    className="h-full rounded-full bg-[var(--primary)] transition-all duration-500"
+                    className="h-full rounded-full bg-[image:var(--primary-gradient)] transition-all duration-500"
                     style={{
                       width: `${Math.min(100, Math.round((job.processedItems / job.totalItems) * 100))}%`,
                     }}

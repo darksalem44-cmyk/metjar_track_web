@@ -15,6 +15,7 @@ import {
   KeyRound,
   BarChart3,
   TrendingUp,
+  Shield,
   User as UserIcon,
   LogOut,
   Menu,
@@ -29,7 +30,12 @@ import { canAccessView } from '@/lib/permissions';
 import dynamic from 'next/dynamic';
 
 function ScreenFallback() {
-  return <div className="py-16 text-center text-[12px] text-[var(--text-secondary)]">جاري تحميل الشاشة...</div>;
+  return (
+    <div className="anim-fade flex flex-col items-center justify-center gap-3 py-20">
+      <span className="w-6 h-6 rounded-full border-2 border-[var(--border-light)] border-t-[var(--primary)] animate-spin" />
+      <span className="text-[12px] text-[var(--text-secondary)]">جاري تحميل الشاشة...</span>
+    </div>
+  );
 }
 
 const AlertsPage = dynamic(() => import('@/components/notifications/AlertsPage'), { ssr: false, loading: () => <ScreenFallback /> });
@@ -84,20 +90,20 @@ function ShellInner() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--surface-main)]">
+    <div className="min-h-screen">
       <Sidebar profile={profile} view={view} go={go} logout={logout} />
       {drawerOpen && (
         <div className="fixed inset-0 z-[80] lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
-          <div className="absolute inset-y-0 right-0 w-[280px] bg-[var(--surface)] border-l border-[var(--border)] overflow-y-auto">
+          <div className="modal-scrim absolute inset-0" onClick={() => setDrawerOpen(false)} />
+          <div className="anim-slide absolute inset-y-0 right-0 w-[284px] bg-[var(--surface)] border-s border-[var(--border)] shadow-[var(--shadow-lg)] overflow-y-auto">
             <SidebarContent profile={profile} view={view} go={go} logout={logout} onClose={() => setDrawerOpen(false)} />
           </div>
         </div>
       )}
 
-      <div className="lg:pr-[264px]">
+      <div className="lg:pr-[272px]">
         <MobileHeader onMenu={() => setDrawerOpen(true)} />
-        <main className="px-4 py-4 lg:px-8 lg:py-6 pb-24 lg:pb-8">
+        <main className="mx-auto max-w-[1500px] px-4 py-5 lg:px-8 lg:py-7 pb-24 lg:pb-10">
           <div key={view.name + viewIndex(view)}>
             <ViewRenderer profile={profile} view={view} />
           </div>
@@ -201,7 +207,7 @@ function activeKey(view: View): string | null {
 
 function Sidebar({ profile, view, go, logout }: { profile: Profile; view: View; go: (v: View) => void; logout: () => void }) {
   return (
-    <aside className="hidden lg:flex fixed inset-y-0 right-0 w-[264px] flex-col border-l border-[var(--border)] bg-[var(--surface)] z-40">
+    <aside className="glass hidden lg:flex fixed inset-y-0 right-0 w-[264px] flex-col border-s border-[var(--border)] z-40">
       <SidebarContent profile={profile} view={view} go={go} logout={logout} />
     </aside>
   );
@@ -227,14 +233,18 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 px-4 h-16 border-b border-[var(--border)] shrink-0">
-        <img src="/icons/Icon-192.png?v=3" alt="متجر تراك" className="w-9 h-9 rounded-xl shrink-0" />
+      <div className="flex items-center gap-2.5 px-4 h-16 border-b border-[var(--border)] shrink-0">
+        <img
+          src="/icons/Icon-192.png?v=3"
+          alt="متجر تراك"
+          className="w-9 h-9 rounded-[12px] shrink-0 ring-1 ring-[var(--primary)]/18 shadow-[var(--shadow-xs)]"
+        />
         <div className="min-w-0">
-          <p className="text-[14px] font-bold text-[var(--text)] leading-tight">متجر تراك</p>
+          <p className="text-[14px] font-bold tracking-[-0.01em] text-[var(--text)] leading-tight">متجر تراك</p>
           <p className="text-[10px] text-[var(--text-secondary)]">لوحة التحكم</p>
         </div>
         {onClose && (
-          <button onClick={onClose} className="mr-auto grid place-items-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]">
+          <button onClick={onClose} aria-label="إغلاق القائمة" className="ms-auto grid place-items-center w-8 h-8 rounded-full text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] active:scale-90 transition-[background-color,color,transform]">
             <X className="w-4 h-4" />
           </button>
         )}
@@ -245,17 +255,26 @@ function SidebarContent({
           <button
             key={item.key}
             onClick={() => go(item.view)}
+            aria-current={active === item.key ? 'page' : undefined}
             className={cn(
-              'w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors',
+              'relative w-full flex items-center gap-3 rounded-[12px] px-3 py-2.5 text-[13px] font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--dur-1)] ease-[var(--ease-out)] active:scale-[0.99]',
               active === item.key
-                ? 'bg-[var(--primary-surface)] text-[var(--primary)]'
+                ? 'bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--brand-700)] shadow-[var(--shadow-xs)]'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)]',
             )}
           >
-            {item.icon}
+            {active === item.key && (
+              <span
+                className="absolute start-[3px] top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-[image:var(--primary-gradient)]"
+                aria-hidden="true"
+              />
+            )}
+            <span className={cn('shrink-0 transition-colors', active === item.key && 'text-[var(--primary)]')}>
+              {item.icon}
+            </span>
             <span className="flex-1 text-start">{item.label}</span>
             {item.key === 'alerts' && unread > 0 && (
-              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--error)] text-white text-[10px] font-bold grid place-items-center">
+              <span className="min-w-[19px] h-[19px] px-1 rounded-full bg-[var(--error)] text-white text-[10px] font-bold grid place-items-center shadow-[var(--shadow-xs)] tnum">
                 {unread > 99 ? '99+' : unread}
               </span>
             )}
@@ -267,25 +286,31 @@ function SidebarContent({
         <button
           onClick={() => go({ name: 'profile' })}
           className={cn(
-            'w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors',
-            active === null && view.name === 'profile'
-              ? 'bg-[var(--primary-surface)] text-[var(--primary)]'
+            'relative w-full flex items-center gap-3 rounded-[12px] px-3 py-2.5 text-[13px] font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--dur-1)] ease-[var(--ease-out)] active:scale-[0.99]',
+            view.name === 'profile'
+              ? 'bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--brand-700)] shadow-[var(--shadow-xs)]'
               : 'text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)]',
           )}
         >
-          <UserIcon className="w-4.5 h-4.5" />
+          {view.name === 'profile' && (
+            <span
+              className="absolute start-[3px] top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-[image:var(--primary-gradient)]"
+              aria-hidden="true"
+            />
+          )}
+          <UserIcon className="w-4.5 h-4.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{profile.fullName}</span>
         </button>
         <button
           onClick={theme.toggle}
-          className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] transition-colors"
+          className="w-full flex items-center gap-3 rounded-[12px] px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] active:scale-[0.99] transition-[background-color,color,transform]"
         >
           {theme.theme === 'dark' ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
           {theme.theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الليلي'}
         </button>
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
+          className="w-full flex items-center gap-3 rounded-[12px] px-3 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] hover:text-[var(--error)] hover:bg-[var(--error)]/10 active:scale-[0.99] transition-[background-color,color,transform]"
         >
           <LogOut className="w-4.5 h-4.5" />
           تسجيل الخروج
@@ -298,16 +323,16 @@ function SidebarContent({
 function MobileHeader({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
   return (
-    <header className="lg:hidden sticky top-0 z-50 flex items-center gap-3 px-4 h-14 border-b border-[var(--border)] bg-[var(--surface)]">
-      <button onClick={onMenu} className="grid place-items-center w-9 h-9 rounded-xl border border-[var(--border)] text-[var(--text-secondary)]">
+    <header className="glass lg:hidden sticky top-0 z-50 flex items-center gap-3 px-4 h-14 border-b border-[var(--border)]">
+      <button onClick={onMenu} aria-label="فتح القائمة" className="grid place-items-center w-9 h-9 rounded-[12px] border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] active:scale-95 transition-[background-color,color,border-color,transform]">
         <Menu className="w-4.5 h-4.5" />
       </button>
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <img src="/icons/Icon-192.png?v=3" alt="متجر تراك" className="w-7 h-7 rounded-lg shrink-0" />
-        <p className="text-[14px] font-bold text-[var(--text)] truncate">متجر تراك</p>
+        <img src="/icons/Icon-192.png?v=3" alt="متجر تراك" className="w-7 h-7 rounded-[9px] shrink-0 ring-1 ring-[var(--primary)]/18" />
+        <p className="text-[14px] font-bold tracking-[-0.01em] text-[var(--text)] truncate">متجر تراك</p>
       </div>
       <AlertsBell />
-      <button onClick={() => router.reset({ name: 'profile' })} className="grid place-items-center w-9 h-9 rounded-xl border border-[var(--border)] text-[var(--text-secondary)]">
+      <button onClick={() => router.reset({ name: 'profile' })} aria-label="الحساب الشخصي" className="grid place-items-center w-9 h-9 rounded-[12px] border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] active:scale-95 transition-[background-color,color,border-color,transform]">
         <UserIcon className="w-4.5 h-4.5" />
       </button>
     </header>
@@ -323,14 +348,17 @@ const MOBILE_TABS: NavItem[] = [
 function MobileTabBar({ view, go }: { view: View; go: (v: View) => void }) {
   const active = activeKey(view);
   return (
-    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-50 flex items-stretch border-t border-[var(--border)] bg-[var(--surface)]">
+    <nav className="glass lg:hidden fixed bottom-0 inset-x-0 z-50 flex items-stretch gap-1 p-2 border-t border-[var(--border)]">
       {MOBILE_TABS.map((item) => (
         <button
           key={item.key}
           onClick={() => go(item.view)}
+          aria-current={active === item.key ? 'page' : undefined}
           className={cn(
-            'flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors',
-            active === item.key ? 'text-[var(--primary)]' : 'text-[var(--text-secondary)]',
+            'flex-1 flex flex-col items-center gap-1 rounded-[14px] py-2 text-[10px] font-semibold transition-[background-color,color,transform] duration-[var(--dur-1)] ease-[var(--ease-out)] active:scale-[0.97]',
+            active === item.key
+              ? 'bg-[var(--primary-surface)] text-[var(--primary)]'
+              : 'text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]',
           )}
         >
           {item.icon}
@@ -344,9 +372,12 @@ function MobileTabBar({ view, go }: { view: View; go: (v: View) => void }) {
 function ViewRenderer({ profile, view }: { profile: Profile; view: View }) {
   if (!canAccessView(profile, view)) {
     return (
-      <div className="mx-auto max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
-        <p className="text-[14px] font-bold text-[var(--text)]">لا تملك صلاحية الوصول إلى هذه الشاشة</p>
-        <p className="text-[12px] text-[var(--text-secondary)] mt-1">تواصل مع المدير إذا كنت تحتاج هذه الصفحة.</p>
+      <div className="card anim-enter mx-auto max-w-md p-8 text-center">
+        <div className="grid place-items-center w-14 h-14 mx-auto rounded-full bg-[var(--warning-surface)] text-[var(--warning)] border border-[var(--warning)]/25">
+          <Shield className="w-6 h-6" />
+        </div>
+        <p className="text-[14px] font-bold text-[var(--text)] mt-4">لا تملك صلاحية الوصول إلى هذه الشاشة</p>
+        <p className="text-[12px] text-[var(--text-secondary)] mt-1.5 leading-relaxed">تواصل مع المدير إذا كنت تحتاج هذه الصفحة.</p>
       </div>
     );
   }

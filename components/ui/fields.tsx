@@ -10,10 +10,10 @@ function fieldBase(
   className?: string,
 ): string {
   return cn(
-    'w-full bg-[var(--input)] text-[var(--text)] text-[13px] rounded-xl border px-3 py-2.5 placeholder:text-[var(--text-muted)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+    'w-full field text-[var(--text)] text-[13px] rounded-[12px] px-3 py-2.5 placeholder:text-[var(--text-muted)] disabled:opacity-45 disabled:cursor-not-allowed',
     hasError
-      ? 'border-[var(--error)] focus:border-[var(--error)]'
-      : 'border-[var(--border)] hover:border-[var(--border-light)] focus:border-[var(--primary)]',
+      ? 'border-[var(--error)] hover:border-[var(--error)] focus:border-[var(--error)] focus:shadow-[var(--ring-error)]'
+      : undefined,
     className,
   );
 }
@@ -45,14 +45,14 @@ function FieldShell({
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={id} className="block text-[12px] font-semibold text-[var(--text-secondary)]">
+        <label htmlFor={id} className="block ps-0.5 text-[12px] font-semibold text-[var(--text-secondary)]">
           {label}
           {required && <span className="text-[var(--error)] ms-0.5">*</span>}
         </label>
       )}
       {children}
       {error ? (
-        <p id={messageId} className="text-[11px] text-[var(--error)]">{error}</p>
+        <p id={messageId} className="anim-fade text-[11px] font-medium text-[var(--error)]">{error}</p>
       ) : hint ? (
         <p id={messageId} className="text-[11px] text-[var(--text-muted)]">{hint}</p>
       ) : null}
@@ -184,8 +184,11 @@ export function SearchField({
   const field = useFieldIds();
   const label = placeholder ?? 'بحث';
   return (
-    <div className={cn('relative', className)}>
-      <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" aria-hidden="true" />
+    <div className={cn('group relative', className)}>
+      <Search
+        className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] transition-colors group-focus-within:text-[var(--primary)]"
+        aria-hidden="true"
+      />
       <input
         type="text"
         id={field.id}
@@ -200,7 +203,7 @@ export function SearchField({
           type="button"
           onClick={() => onChange('')}
           aria-label="مسح البحث"
-          className="absolute end-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)]"
+          className="absolute end-2.5 top-1/2 -translate-y-1/2 grid place-items-center w-6 h-6 rounded-full text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-variant)] active:scale-90"
         >
           <X className="w-4 h-4" aria-hidden="true" />
         </button>

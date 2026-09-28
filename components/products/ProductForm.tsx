@@ -121,7 +121,7 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
       <PageHeader title={isEdit ? 'تعديل المنتج' : 'إضافة منتج'} onBack={() => router.pop()} />
 
       <div className="space-y-5">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-4">
+        <section className="card p-4 space-y-4">
           <div className="flex items-center gap-2">
             <Package className="w-4 h-4 text-[var(--primary)]" />
             <h3 className="text-[14px] font-bold text-[var(--text)]">بيانات المنتج</h3>
@@ -163,7 +163,7 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
 
           <CategoryAutocomplete label="التصنيف" value={category} onChange={setCategory} placeholder="اختر أو اكتب الفئة" />
 
-          <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
+          <div className="flex items-center justify-between card rounded-[12px] px-3.5 py-3">
             <div>
               <p className="text-[13px] font-semibold text-[var(--text)]">الأنسب مبيعاً</p>
               <p className="text-[11px] text-[var(--text-secondary)]">إبراز المنتج كمفضل لدى العملاء</p>
@@ -195,11 +195,11 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
           )}
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <section className="card p-4">
           <ImagePicker label="صور المنتج" value={imageUrls} onChange={setImageUrls} folder={folder} max={5} hint="حتى 5 صور" />
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <section className="card p-4">
           <TextArea label="الوصف" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف المنتج ومكوناته" rows={4} />
         </section>
 

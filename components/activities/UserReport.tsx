@@ -251,10 +251,10 @@ export default function UserReport({
             key={p.value}
             onClick={() => setRange(p.value)}
             className={cn(
-              'px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap',
+              'pill',
               range === p.value
-                ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]'
-                : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--border-light)]',
+                ? 'pill-on'
+                : '',
             )}
           >
             {p.label}
@@ -285,40 +285,40 @@ export default function UserReport({
       ) : (
         <>
           <div className="grid grid-cols-4 gap-2.5 mb-5">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+            <div className="card p-3 text-center">
               <p className="text-[18px] font-bold text-[var(--primary)] leading-none">{grandTotal}</p>
               <p className="text-[10px] text-[var(--text-secondary)] mt-1.5">إجمالي النشاط</p>
             </div>
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+            <div className="card p-3 text-center">
               <p className="text-[18px] font-bold text-[var(--text)] leading-none">{totals.created}</p>
               <p className="text-[10px] text-[var(--text-secondary)] mt-1.5">إضافات</p>
             </div>
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+            <div className="card p-3 text-center">
               <p className="text-[18px] font-bold text-[var(--text)] leading-none">{totals.updated}</p>
               <p className="text-[10px] text-[var(--text-secondary)] mt-1.5">تعديلات</p>
             </div>
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-center">
+            <div className="card p-3 text-center">
               <p className="text-[18px] font-bold text-[var(--error)] leading-none">{totals.deleted}</p>
               <p className="text-[10px] text-[var(--text-secondary)] mt-1.5">حذف</p>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2.5 mb-5">
-            <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="flex items-center gap-2 card p-3">
               <Box className="w-4 h-4 text-[var(--primary)]" />
               <div>
                 <p className="text-[14px] font-bold text-[var(--text)] leading-none">{entities.stores}</p>
                 <p className="text-[10px] text-[var(--text-secondary)] mt-1">متاجر</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="flex items-center gap-2 card p-3">
               <Split className="w-4 h-4 text-[var(--primary)]" />
               <div>
                 <p className="text-[14px] font-bold text-[var(--text)] leading-none">{entities.branches}</p>
                 <p className="text-[10px] text-[var(--text-secondary)] mt-1">فروع</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="flex items-center gap-2 card p-3">
               <Box className="w-4 h-4 text-[var(--primary)]" />
               <div>
                 <p className="text-[14px] font-bold text-[var(--text)] leading-none">{entities.products}</p>
@@ -327,7 +327,7 @@ export default function UserReport({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 mb-6">
+          <div className="card p-4 mb-6">
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-[var(--primary)]" />
               <h3 className="text-[13px] font-bold text-[var(--text)]">النشاط اليومي</h3>
@@ -348,9 +348,9 @@ export default function UserReport({
                       labelFormatter={(l) => `التاريخ: ${l}`}
                       contentStyle={TOOLTIP_STYLE}
                     />
-                    <Bar dataKey="created" name="إضافة" fill="var(--green)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
-                    <Bar dataKey="updated" name="تعديل" fill="var(--primary)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
-                    <Bar dataKey="deleted" name="حذف" fill="var(--error)" radius={[3, 3, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
+                    <Bar dataKey="created" name="إضافة" fill="var(--green)" radius={[4, 4, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
+                    <Bar dataKey="updated" name="تعديل" fill="var(--primary)" radius={[4, 4, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
+                    <Bar dataKey="deleted" name="حذف" fill="var(--error)" radius={[4, 4, 0, 0]} maxBarSize={16} className="cursor-pointer" onClick={(d) => openDay(d?.payload?.day)} />
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="flex items-center justify-center gap-5 mt-3">
@@ -376,8 +376,8 @@ export default function UserReport({
                   key={v}
                   onClick={() => applyTimelineFilter(v, actionFilter)}
                   className={cn(
-                    'px-3 py-1 rounded-full border text-[11px] font-semibold transition-colors whitespace-nowrap',
-                    entityFilter === v ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]' : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)]',
+                    'pill pill-sm',
+                    entityFilter === v ? 'pill-on' : '',
                   )}
                 >
                   {l}
@@ -391,8 +391,8 @@ export default function UserReport({
                   key={v}
                   onClick={() => applyTimelineFilter(entityFilter, v)}
                   className={cn(
-                    'px-3 py-1 rounded-full border text-[11px] font-semibold transition-colors whitespace-nowrap',
-                    actionFilter === v ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]' : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)]',
+                    'pill pill-sm',
+                    actionFilter === v ? 'pill-on' : '',
                   )}
                 >
                   {l}
@@ -414,7 +414,7 @@ export default function UserReport({
                   key={ev.id}
                   type="button"
                   onClick={() => setDetailEvent(ev)}
-                  className="w-full text-start flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 hover:border-[var(--primary-light)] transition-colors"
+                  className="w-full text-start flex items-start gap-3 card card-hover p-3.5"
                 >
                   <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center shrink-0">
                     {ev.action === 'created' ? <PlusCircle className="w-4 h-4" /> : ev.action === 'deleted' ? <Trash2 className="w-4 h-4" /> : <PenLine className="w-4 h-4" />}
@@ -459,7 +459,7 @@ export default function UserReport({
                     key={ev.id}
                     type="button"
                     onClick={() => setDetailEvent(ev)}
-                    className="w-full text-start flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 hover:border-[var(--primary-light)] transition-colors"
+                    className="w-full text-start flex items-start gap-3 card card-hover rounded-[12px] p-3"
                   >
                     <span className="w-8 h-8 rounded-lg bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center shrink-0">
                       {ev.action === 'created' ? <PlusCircle className="w-4 h-4" /> : ev.action === 'deleted' ? <Trash2 className="w-4 h-4" /> : <PenLine className="w-4 h-4" />}

@@ -36,7 +36,7 @@ export default function InstallPrompt() {
 
   return (
     <div className="fixed bottom-20 lg:bottom-6 inset-x-4 lg:inset-x-auto lg:end-6 z-[90] lg:max-w-sm">
-      <div className="flex items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-lg">
+      <div className="flex items-start gap-3 card p-4 shadow-lg">
         <span className="grid place-items-center w-10 h-10 rounded-xl bg-[var(--primary-surface)] text-[var(--primary)] shrink-0">
           <Download className="w-5 h-5" />
         </span>
@@ -48,7 +48,7 @@ export default function InstallPrompt() {
           <div className="flex items-center gap-2 mt-3">
             <button
               onClick={doInstall}
-              className="px-3.5 py-1.5 rounded-xl bg-[var(--primary)] text-[var(--on-primary)] text-[12px] font-semibold"
+              className="btn-brand px-3.5 py-1.5 rounded-[12px] text-[12px] font-semibold"
             >
               تثبيت
             </button>

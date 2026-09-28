@@ -179,7 +179,7 @@ export default function BranchForm({ storeId, branchId }: { storeId: string; bra
       {!editable && <p className="mb-4 text-[12px] text-[var(--error)]">ليس لديك صلاحية لتعديل الفروع.</p>}
 
       <div className="space-y-5">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <section className="card p-5">
           <div className="flex items-center gap-2 mb-4">
             <SplineIcon className="w-4 h-4 text-[var(--primary)]" />
             <h3 className="text-[14px] font-bold text-[var(--text)]">بيانات الفرع</h3>
@@ -218,7 +218,7 @@ export default function BranchForm({ storeId, branchId }: { storeId: string; bra
           </div>
 
           {isEdit && (
-            <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3 mt-4">
+            <div className="flex items-center justify-between card rounded-[12px] px-3.5 py-3 mt-4">
               <div>
                 <p className="text-[13px] font-semibold text-[var(--text)]">الفرع نشط</p>
                 <p className="text-[11px] text-[var(--text-secondary)]">تعطيل الفرع يخفيه عن العرض</p>
@@ -228,7 +228,7 @@ export default function BranchForm({ storeId, branchId }: { storeId: string; bra
           )}
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <section className="card p-5">
           <div className="flex items-center gap-2 mb-4">
             <MapPin className="w-4 h-4 text-[var(--primary)]" />
             <h3 className="text-[14px] font-bold text-[var(--text)]">الموقع على الخريطة</h3>
@@ -249,14 +249,14 @@ export default function BranchForm({ storeId, branchId }: { storeId: string; bra
           )}
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <section className="card p-5">
           <ImagePicker label="صور الفرع" value={coverImageUrls} onChange={setCoverImageUrls} folder={`branches/${profile.id}/`} max={5} />
           <div className="mt-4">
             <SingleImagePicker label="لافتة الفرع" value={signageImageUrl} onChange={(v) => setSignageImageUrl(v || '')} folder={`branches/${profile.id}/signage`} />
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-4">
+        <section className="card p-4 space-y-4">
           <h3 className="text-[14px] font-bold text-[var(--text)]">محافظ الدفع</h3>
           <WalletFields
             walletName="شام كاش"
@@ -276,11 +276,11 @@ export default function BranchForm({ storeId, branchId }: { storeId: string; bra
           />
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <section className="card p-5">
           <TextArea label="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية حول الفرع" rows={3} disabled={!editable} />
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
+        <section className="card p-4 space-y-3">
           <h3 className="text-[14px] font-bold text-[var(--text)]">حقول مخصصة</h3>
           <CustomFieldsEditor fields={customFields} onChange={editable ? setCustomFields : () => {}} />
         </section>

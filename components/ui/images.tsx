@@ -80,9 +80,9 @@ function Thumb({
   uploading?: boolean;
 }) {
   return (
-    <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--surface-variant)]">
+    <div className="group relative w-24 h-24 rounded-[14px] overflow-hidden border border-[var(--border)] bg-[var(--surface-variant)] shadow-[var(--shadow-xs)] transition-[box-shadow,border-color,transform] duration-[var(--dur-2)] ease-[var(--ease-out)] hover:border-[var(--border-light)] hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5">
       <button type="button" onClick={onOpen} className={cn('block w-full h-full', onOpen && 'cursor-zoom-in')}>
-        <ResolvedImage src={src} alt={alt} className="w-full h-full" />
+        <ResolvedImage src={src} alt={alt} className="w-full h-full transition-transform duration-[var(--dur-3)] ease-[var(--ease-out)] group-hover:scale-[1.04]" />
       </button>
       {uploading && (
         <div className="absolute inset-0 grid place-items-center bg-black/40">
@@ -93,7 +93,8 @@ function Thumb({
         <button
           type="button"
           onClick={onRemove}
-          className="absolute top-1 end-1 grid place-items-center w-6 h-6 rounded-full bg-black/60 text-white hover:bg-black/80"
+          aria-label="إزالة الصورة"
+          className="absolute top-1.5 end-1.5 grid place-items-center w-6 h-6 rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-[var(--error)] active:scale-90"
         >
           <X className="w-3.5 h-3.5" />
         </button>
@@ -167,7 +168,7 @@ export function ImagePicker({
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            className="w-24 h-24 rounded-xl border-2 border-dashed border-[var(--border-light)] grid place-items-center text-[var(--text-muted)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
+            className="w-24 h-24 rounded-[14px] border-2 border-dashed border-[var(--border-light)] bg-[var(--input)] grid place-items-center text-[var(--text-muted)] transition-[border-color,background-color,color,transform,box-shadow] duration-[var(--dur-2)] ease-[var(--ease-out)] hover:border-[var(--primary)] hover:bg-[var(--primary-surface)] hover:text-[var(--primary-dark)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)] active:scale-[0.97] disabled:opacity-50"
           >
             {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-6 h-6" />}
           </button>
@@ -233,14 +234,20 @@ export function SingleImagePicker({
     <div className="space-y-2">
       {label && <p className="text-[12px] font-semibold text-[var(--text-secondary)]">{label}</p>}
       {value ? (
-        <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-[var(--border)]">
-          <button type="button" onClick={() => setViewer(true)} className="block w-full h-full">
-            <ResolvedImage src={value} alt="" className="w-full h-full" />
+        <div className="group relative w-32 h-32 rounded-[14px] overflow-hidden border border-[var(--border)] shadow-[var(--shadow-sm)]">
+          <button
+            type="button"
+            onClick={() => setViewer(true)}
+            aria-label="تكبير الصورة"
+            className="block w-full h-full cursor-zoom-in"
+          >
+            <ResolvedImage src={value} alt="" className="w-full h-full transition-transform duration-[var(--dur-3)] ease-[var(--ease-out)] group-hover:scale-[1.04]" />
           </button>
           <button
             type="button"
             onClick={() => onChange(undefined)}
-            className="absolute top-1 end-1 grid place-items-center w-6 h-6 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="إزالة الصورة"
+            className="absolute top-1.5 end-1.5 grid place-items-center w-6 h-6 rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-[var(--error)] active:scale-90"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -250,7 +257,7 @@ export function SingleImagePicker({
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="w-32 h-32 rounded-xl border-2 border-dashed border-[var(--border-light)] grid place-items-center text-[var(--text-muted)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors disabled:opacity-50 flex-col gap-1"
+          className="w-32 h-32 rounded-[14px] border-2 border-dashed border-[var(--border-light)] bg-[var(--input)] grid place-items-center text-[var(--text-muted)] transition-[border-color,background-color,color,transform,box-shadow] duration-[var(--dur-2)] ease-[var(--ease-out)] hover:border-[var(--primary)] hover:bg-[var(--primary-surface)] hover:text-[var(--primary-dark)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-sm)] active:scale-[0.97] disabled:opacity-50 flex-col gap-1"
         >
           {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-6 h-6" />}
           {!uploading && <span className="text-[11px]">إضافة صورة</span>}
@@ -286,8 +293,13 @@ export function ImageRow({
   return (
     <div className="flex gap-2 overflow-x-auto py-1">
       {value.map((p, i) => (
-        <button key={i} type="button" onClick={() => onOpen(i)} className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-[var(--border)]">
-          <ResolvedImage src={p} alt="" className="w-full h-full" />
+        <button
+          key={i}
+          type="button"
+          onClick={() => onOpen(i)}
+          className="group w-20 h-20 shrink-0 rounded-[14px] overflow-hidden border border-[var(--border)] shadow-[var(--shadow-xs)] transition-[box-shadow,border-color,transform] duration-[var(--dur-2)] ease-[var(--ease-out)] hover:border-[var(--border-light)] hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5"
+        >
+          <ResolvedImage src={p} alt="" className="w-full h-full transition-transform duration-[var(--dur-3)] ease-[var(--ease-out)] group-hover:scale-[1.05]" />
         </button>
       ))}
     </div>

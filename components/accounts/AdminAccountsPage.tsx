@@ -233,10 +233,10 @@ export default function AdminAccountsPage() {
 
   const filterBtn = (active: boolean) =>
     cn(
-      'px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap',
+      'pill',
       active
-        ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]'
-        : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--border-light)]',
+        ? 'pill-on'
+        : '',
     );
 
   return (
@@ -289,7 +289,7 @@ export default function AdminAccountsPage() {
       ) : (
         <div className="space-y-2.5">
           {filtered.map((acc) => (
-            <div key={acc.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+            <div key={acc.id} className="card p-4">
               <div className="flex items-center gap-3">
                 <Avatar name={acc.fullName} size={42} />
                 <div className="min-w-0 flex-1">
@@ -459,7 +459,7 @@ export default function AdminAccountsPage() {
               <p className="text-[11px] text-[var(--text-muted)] mt-1">البريد الإلكتروني لا يمكن تغييره بعد إنشاء الحساب</p>
             </div>
 
-            <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
+            <div className="flex items-center justify-between card rounded-[12px] px-3.5 py-3">
               <div>
                 <p className="text-[13px] font-semibold text-[var(--text)]">حالة الحساب</p>
                 <p className="text-[11px] text-[var(--text-secondary)]">تعطيل الحساب يمنع صاحبه من تسجيل الدخول</p>

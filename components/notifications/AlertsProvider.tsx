@@ -270,12 +270,12 @@ export function AlertsBell({ className }: { className?: string }) {
       title="التنبيهات"
       className={
         className ??
-        'relative grid place-items-center w-9 h-9 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)]'
+        'relative grid place-items-center w-9 h-9 rounded-[12px] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--surface-variant)] active:scale-95 transition-[background-color,color,border-color,transform]'
       }
     >
       <Bell className="w-4.5 h-4.5" />
       {unread > 0 && (
-        <span className="absolute -top-1 -left-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--error)] text-white text-[10px] font-bold grid place-items-center">
+        <span className="absolute -top-1 -left-1 min-w-[19px] h-[19px] px-1 rounded-full bg-[var(--error)] text-white text-[10px] font-bold grid place-items-center ring-2 ring-[var(--surface)] tnum">
           {unread > 99 ? '99+' : unread}
         </span>
       )}

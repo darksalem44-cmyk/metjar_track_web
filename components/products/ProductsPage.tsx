@@ -242,7 +242,7 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
           <button
             type="button"
             onClick={() => setStoreFilterOpen((o) => !o)}
-            className="w-full flex items-center justify-between gap-2 ps-3.5 pe-3 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] hover:border-[var(--primary)] transition-colors"
+            className="w-full field flex items-center justify-between gap-2 ps-3.5 pe-3 py-2.5 rounded-[12px] text-[13px] text-[var(--text)]"
           >
             <span className="flex items-center gap-2 min-w-0">
               <StoreIcon className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
@@ -256,7 +256,7 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
           {storeFilterOpen && (
             <>
               <div className="fixed inset-0 z-20" onClick={() => setStoreFilterOpen(false)} />
-              <div className="absolute z-30 mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg overflow-hidden">
+              <div className="absolute z-30 mt-1.5 w-full card rounded-[12px] shadow-lg overflow-hidden">
                 <div className="p-2 border-b border-[var(--border)]">
                   <SearchField value={storeFilterSearch} onChange={setStoreFilterSearch} placeholder="بحث عن الشركة..." />
                 </div>
@@ -330,7 +330,7 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
               <button
                 key={p.id}
                 onClick={() => router.push({ name: 'product-details', productId: p.id })}
-                className="text-start rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden hover:border-[var(--primary-light)] hover:shadow-sm transition-all"
+                className="text-start card card-hover overflow-hidden"
               >
                 <div className="h-32 bg-[var(--surface-variant)] relative">
                   <ResolvedImage src={p.imageUrls[0]} alt={p.name} className="w-full h-full" />
@@ -377,7 +377,7 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
                   setStorePickerOpen(false);
                   router.push({ name: 'product-form', storeId: s.id });
                 }}
-                className="w-full flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-start hover:border-[var(--primary-light)]"
+                className="w-full flex items-center gap-3 card card-hover rounded-[12px] p-3 text-start"
               >
                 <span className="grid place-items-center w-9 h-9 rounded-lg bg-[var(--primary-surface)] text-[var(--primary)]">
                   <StoreIcon className="w-4 h-4" />

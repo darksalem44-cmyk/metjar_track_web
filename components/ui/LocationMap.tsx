@@ -38,8 +38,22 @@ function ClickCatcher({ onSelect }: { onSelect?: (p: LatLngValue) => void }) {
 function FlyTo({ center }: { center?: LatLngValue }) {
   const map = useMapEvents({});
   const prev = useRef<string | undefined>(undefined);
+  const destroyed = useRef(false);
+
+  // Leaflet تطلق unload قبل حذف _mapPane داخل remove()، وأي flyTo بعدها يرمي
+  // TypeError في getPosition. العلامة تحمي من تأثير ابن يعمل بعد تنظيف الأب.
   useEffect(() => {
-    if (!center) return;
+    const onUnload = () => {
+      destroyed.current = true;
+    };
+    map.on('unload', onUnload);
+    return () => {
+      map.off('unload', onUnload);
+    };
+  }, [map]);
+
+  useEffect(() => {
+    if (!center || destroyed.current) return;
     const key = `${center.latitude},${center.longitude}`;
     if (prev.current === key) return;
     prev.current = key;

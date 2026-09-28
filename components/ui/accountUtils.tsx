@@ -44,8 +44,8 @@ export function CopyButton({
       onClick={copy}
       aria-label={iconOnly ? (copied ? 'تم النسخ' : (label ?? 'نسخ')) : undefined}
       className={cn(
-        'inline-flex items-center gap-1.5 text-[12px] font-semibold rounded-lg px-2 py-1.5 transition-colors',
-        copied ? 'text-[var(--green)]' : 'text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--surface-variant)]',
+        'inline-flex items-center gap-1.5 text-[12px] font-semibold rounded-lg px-2 py-1.5 transition-[background-color,color,transform] duration-[var(--dur-1)] ease-[var(--ease-out)] active:scale-95',
+        copied ? 'text-[var(--green)] bg-[var(--green)]/10' : 'text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--surface-variant)]',
         className,
       )}
     >
@@ -65,7 +65,7 @@ export function WhatsAppShareButton({ text, className }: { text: string; classNa
       type="button"
       onClick={share}
       className={cn(
-        'inline-flex items-center gap-1.5 text-[12px] font-semibold rounded-lg px-2 py-1.5 transition-colors text-[var(--green)] hover:bg-[var(--surface-variant)]',
+        'inline-flex items-center gap-1.5 text-[12px] font-semibold rounded-lg px-2 py-1.5 transition-[background-color,transform] duration-[var(--dur-1)] ease-[var(--ease-out)] text-[var(--green)] hover:bg-[var(--green)]/10 active:scale-95',
         className,
       )}
     >
@@ -87,8 +87,8 @@ export function CreatedAccountActions({
   const [revealed, setRevealed] = useState(true);
   const summary = `تم إنشاء حساب ${name} في متجر تراك\nالبريد الإلكتروني: ${email}\nكلمة المرور: ${password}`;
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
-      <div className="flex items-start justify-between gap-2 bg-[var(--input)] rounded-lg p-3 border border-[var(--border)]">
+    <div className="card anim-enter p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2 bg-[var(--input)] rounded-[12px] p-3 border border-[var(--border)]">
         <div className="min-w-0">
           <p className="text-[11px] text-[var(--text-secondary)] mb-1" dir="ltr">{email}</p>
           <p className="text-[13px] font-mono font-semibold text-[var(--text)] tracking-wider" dir="ltr">
@@ -101,7 +101,7 @@ export function CreatedAccountActions({
             onClick={() => setRevealed((v) => !v)}
             aria-label={revealed ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
             aria-pressed={revealed}
-            className="grid place-items-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]"
+            className="grid place-items-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] active:scale-90 transition-[background-color,color,transform]"
           >
             {revealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
           </button>
@@ -135,11 +135,14 @@ export function PermissionRow({
   danger?: boolean;
 }) {
   return (
-    <label className={cn('flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 cursor-pointer select-none',
-      danger ? 'border-[var(--warning)]/40 bg-[var(--warning-surface)]' : 'border-[var(--border)] bg-[var(--surface)]')}>
+    <label className={cn('flex items-center justify-between gap-3 rounded-[14px] border px-3.5 py-3 cursor-pointer select-none transition-[background-color,border-color,box-shadow] duration-[var(--dur-2)] ease-[var(--ease-out)]',
+      danger
+        ? 'border-[var(--warning)]/40 bg-[var(--warning-surface)] hover:border-[var(--warning)]/65'
+        : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-light)] hover:bg-[var(--input)]',
+      checked && !danger && 'border-[var(--primary)]/40 shadow-[var(--shadow-xs)]')}>
       <div>
         <p className="text-[13px] font-semibold text-[var(--text)]">{title}</p>
-        {description && <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{description}</p>}
+        {description && <p className="text-[11px] text-[var(--text-secondary)] mt-0.5 leading-relaxed">{description}</p>}
       </div>
       <input
         type="checkbox"
@@ -147,8 +150,7 @@ export function PermissionRow({
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
         className={cn(
-          'w-5 h-5 rounded accent-[var(--primary)] shrink-0',
-          disabled && 'opacity-40',
+          'w-5 h-5 rounded-md accent-[var(--primary)] shrink-0 cursor-pointer transition-opacity disabled:opacity-40 disabled:cursor-not-allowed',
         )}
       />
     </label>

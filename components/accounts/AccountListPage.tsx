@@ -178,10 +178,10 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
             key={opt.value}
             onClick={() => setFilter(opt.value)}
             className={cn(
-              'px-3 py-1.5 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap',
+              'pill',
               filter === opt.value
-                ? 'bg-[var(--primary)] text-[var(--on-primary)] border-[var(--primary)]'
-                : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--border-light)]',
+                ? 'pill-on'
+                : '',
             )}
           >
             {opt.label}
@@ -201,7 +201,7 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
         <>
           <div className="space-y-2.5">
             {sorted.map((acc) => (
-              <div key={acc.id} className={cn('rounded-2xl border bg-[var(--surface)] p-4', acc.isActive ? 'border-[var(--border)]' : 'border-[var(--border)] opacity-80')}>
+              <div key={acc.id} className={cn('card anim-enter p-4', !acc.isActive && 'opacity-80')}>
                 <div className="flex items-center gap-3">
                   <Avatar name={acc.fullName} size={42} />
                   <div className="min-w-0 flex-1">

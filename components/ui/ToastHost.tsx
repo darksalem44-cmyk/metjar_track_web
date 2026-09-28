@@ -18,25 +18,27 @@ export default function ToastHost() {
       {items.map((item) => (
         <div
           key={item.id}
-          className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-3 py-2.5 shadow-lg max-w-md w-full ${
+          className={`anim-enter pointer-events-auto flex items-center gap-3 rounded-[14px] border px-3.5 py-2.5 shadow-[var(--shadow-lg)] max-w-md w-full ${
             item.type === 'error'
-              ? 'bg-[var(--error-surface)] border-[var(--error)]'
-              : item.type === 'success'
-                ? 'bg-[var(--surface)] border-[var(--border)]'
-                : 'bg-[var(--surface)] border-[var(--border)]'
+              ? 'bg-[var(--error-surface)] border-[var(--error)]/35'
+              : 'glass border-[var(--border)]'
           }`}
         >
           {item.type === 'error' ? (
-            <span className="grid place-items-center w-6 h-6 rounded-full bg-[var(--error)] text-[var(--error-dark)]">
+            <span className="grid place-items-center w-6 h-6 rounded-full bg-[var(--error)] text-[var(--on-error)]">
               <AlertCircle className="w-4 h-4" />
             </span>
           ) : item.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-[var(--green)]" />
+            <span className="grid place-items-center w-6 h-6 rounded-full bg-[var(--green)]/14 text-[var(--green)]">
+              <CheckCircle2 className="w-4 h-4" />
+            </span>
           ) : (
-            <Info className="w-5 h-5 text-[var(--accent)]" />
+            <span className="grid place-items-center w-6 h-6 rounded-full bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--brand-700)]">
+              <Info className="w-4 h-4" />
+            </span>
           )}
           <p
-            className={`text-[13px] font-semibold ${
+            className={`text-[13px] font-semibold leading-relaxed ${
               item.type === 'error' ? 'text-[var(--error-text)]' : 'text-[var(--text)]'
             }`}
           >

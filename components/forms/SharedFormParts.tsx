@@ -21,9 +21,11 @@ export function WalletFields({
   imageFolder: string;
 }) {
   return (
-    <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-      <div className="flex items-center gap-2">
-        <Wallet className="w-4 h-4 text-[var(--accent)]" />
+    <div className="card anim-enter space-y-3 p-4">
+      <div className="flex items-center gap-2 pb-1 mb-1 border-b border-[var(--border)]">
+        <span className="grid place-items-center w-7 h-7 rounded-[10px] bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] border border-[var(--primary)]/18">
+          <Wallet className="w-4 h-4" />
+        </span>
         <h4 className="text-[14px] font-bold text-[var(--text)]">{walletName}</h4>
       </div>
       <TextField
@@ -86,7 +88,7 @@ export function CustomFieldsEditor({
         variant="outline"
         size="sm"
         onClick={() => onChange([...fields, { label: '', value: '' }])}
-        className="w-full"
+        className="w-full border-dashed hover:border-solid"
       >
         + إضافة حقل مخصص
       </Button>

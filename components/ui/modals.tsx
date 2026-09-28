@@ -89,7 +89,7 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div className="modal-scrim absolute inset-0" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
         role="dialog"
@@ -97,26 +97,26 @@ export function Modal({
         aria-labelledby={typeof title === 'string' ? titleId : undefined}
         tabIndex={-1}
         style={{ maxWidth }}
-        className="relative w-full bg-[var(--surface)] sm:rounded-2xl rounded-t-2xl border border-[var(--border)] shadow-xl max-h-[90vh] flex flex-col outline-none"
+        className="modal-panel relative w-full sm:rounded-[20px] rounded-t-[20px] max-h-[90vh] flex flex-col outline-none"
       >
         {title && (
-          <div className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--border)] shrink-0">
-            <h3 id={titleId} className="text-[15px] font-bold text-[var(--text)]">
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border)] shrink-0">
+            <h3 id={titleId} className="text-[15px] font-bold tracking-[-0.01em] text-[var(--text)]">
               {title}
             </h3>
             <button
               type="button"
               onClick={onClose}
               aria-label="إغلاق"
-              className="grid place-items-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--surface-variant)]"
+              className="grid place-items-center w-8 h-8 rounded-full text-[var(--text-secondary)] hover:bg-[var(--surface-variant)] hover:text-[var(--text)] active:scale-90"
             >
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         )}
-        <div className="overflow-y-auto px-4 py-4 min-h-0">{children}</div>
+        <div className="overflow-y-auto px-5 py-4 min-h-0">{children}</div>
         {footer && (
-          <div className="px-4 py-3 border-t border-[var(--border)] flex items-center justify-end gap-2 shrink-0">
+          <div className="px-5 py-3.5 border-t border-[var(--border)] bg-[var(--surface-variant)]/35 sm:rounded-b-[20px] flex items-center justify-end gap-2 shrink-0">
             {footer}
           </div>
         )}

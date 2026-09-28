@@ -56,7 +56,7 @@ function WeekCompareCard({ point, series }: { point: TrendPoint; series: TrendPo
   const delta = weekDelta(point, series);
   const up = delta !== null && delta > 0;
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 min-w-[150px] flex-1">
+    <div className="card p-3.5 min-w-[150px] flex-1">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[12px] font-bold text-[var(--text)]">{point.label}</p>
         {delta !== null && delta !== 0 && (
@@ -199,7 +199,7 @@ export default function ActivityTrendsPage() {
       ) : (
         <div className="space-y-5">
           {/* المخطط الأسبوعي */}
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <div className="card p-4">
             <SectionTitle
               icon={<CalendarRange className="w-4 h-4 text-[var(--primary)]" />}
               title="حجم النشاط أسبوعياً"
@@ -226,7 +226,7 @@ export default function ActivityTrendsPage() {
 
           {/* الأكثر نشاطاً */}
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+            <div className="card p-4">
               <SectionTitle
                 icon={<Users className="w-4 h-4 text-[var(--primary)]" />}
                 title="أكثر الموظفين نشاطاً"
@@ -248,7 +248,7 @@ export default function ActivityTrendsPage() {
               )}
             </div>
 
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+            <div className="card p-4">
               <SectionTitle
                 icon={<TrendingUp className="w-4 h-4 text-[var(--primary)]" />}
                 title="أكثر المتاجر والمنتجات تغييراً"
@@ -300,7 +300,7 @@ function TopList({
           </div>
           <div className="h-2 rounded-full bg-[var(--surface-variant)] overflow-hidden">
             <div
-              className="h-full rounded-full bg-[var(--primary)] transition-all"
+              className="h-full rounded-full bg-[image:var(--primary-gradient)] transition-all"
               style={{ width: `${(row.count / max) * 100}%` }}
             />
           </div>

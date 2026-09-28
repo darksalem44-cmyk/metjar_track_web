@@ -183,7 +183,7 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
       {!editable && <p className="mb-4 text-[12px] text-[var(--error)]">ليس لديك صلاحية لتعديل المتاجر.</p>}
 
       <div className="space-y-5">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-4">
+        <section className="card p-4 space-y-4">
           <div className="flex items-center gap-2">
             <StoreIcon className="w-4 h-4 text-[var(--primary)]" />
             <h3 className="text-[14px] font-bold text-[var(--text)]">البيانات الأساسية</h3>
@@ -232,7 +232,7 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
           />
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-4">
+        <section className="card p-4 space-y-4">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-[var(--primary)]" />
             <h3 className="text-[14px] font-bold text-[var(--text)]">ساعات العمل</h3>
@@ -255,7 +255,7 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
+        <section className="card p-4 space-y-3">
           <h3 className="text-[14px] font-bold text-[var(--text)]">الموقع على الخريطة</h3>
           <LocationMap center={position} onSelect={editable ? setPosition : undefined} />
           {position && (
@@ -265,7 +265,7 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
           )}
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-4">
+        <section className="card p-4 space-y-4">
           <h3 className="text-[14px] font-bold text-[var(--text)]">الصور</h3>
           <SingleImagePicker
             label="لافتة المتجر"
@@ -284,7 +284,7 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
           />
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-4">
+        <section className="card p-4 space-y-4">
           <h3 className="text-[14px] font-bold text-[var(--text)]">محافظ الدفع</h3>
           <WalletFields
             walletName="شام كاش"
@@ -304,12 +304,12 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
           />
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
+        <section className="card p-4 space-y-3">
           <h3 className="text-[14px] font-bold text-[var(--text)]">حقول مخصصة</h3>
           <CustomFieldsEditor fields={customFields} onChange={editable ? setCustomFields : () => {}} />
         </section>
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <section className="card p-4">
           <TextArea
             label="ملاحظات"
             value={notes}

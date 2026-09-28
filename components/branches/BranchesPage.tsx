@@ -115,7 +115,7 @@ export default function BranchesPage({ storeId }: { storeId: string }) {
           {branches.map((b) => (
             <div
               key={b.id}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+              className="card p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <button onClick={() => router.push({ name: 'branch-details', storeId, branchId: b.id })} className="flex items-start gap-3 text-start flex-1 min-w-0">

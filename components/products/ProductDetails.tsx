@@ -87,7 +87,7 @@ export default function ProductDetails({ productId }: { productId: string }) {
         }
       />
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden mb-5">
+      <div className="card overflow-hidden mb-5">
         <div className="h-64 bg-[var(--surface-variant)] relative">
           <button
             type="button"
@@ -127,7 +127,7 @@ export default function ProductDetails({ productId }: { productId: string }) {
       )}
 
       {product.description && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 mb-5">
+        <div className="card p-4 mb-5">
           <h3 className="text-[13px] font-bold text-[var(--text)] mb-1.5">الوصف</h3>
           <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed whitespace-pre-line">{product.description}</p>
         </div>

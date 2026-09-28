@@ -139,7 +139,7 @@ export default function AlertSettingsModal({ open, onClose }: { open: boolean; o
               return (
                 <div
                   key={key}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 flex items-start gap-3"
+                  className="card rounded-[12px] p-3 flex items-start gap-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-[12.5px] font-semibold text-[var(--text)]">{alertRuleLabels[key]}</p>
@@ -177,7 +177,7 @@ export default function AlertSettingsModal({ open, onClose }: { open: boolean; o
             <BellRing className="w-4 h-4 text-[var(--text-secondary)]" />
             إشعارات النظام (PWA)
           </p>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 flex items-start gap-3">
+          <div className="card rounded-[12px] p-3 flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-[12.5px] font-semibold text-[var(--text)]">تقرير أسبوعي وإشعار عند الحاجة</p>
               <p className="text-[10.5px] text-[var(--text-secondary)] mt-0.5">
@@ -213,7 +213,7 @@ export default function AlertSettingsModal({ open, onClose }: { open: boolean; o
               {activeMutedEntities.map((entity) => (
                 <div
                   key={`entity-${entity.id}`}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 flex items-center gap-2"
+                  className="card rounded-[12px] p-2.5 flex items-center gap-2"
                 >
                   <AlertTriangle className="w-4 h-4 text-[var(--warning)] shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -229,7 +229,7 @@ export default function AlertSettingsModal({ open, onClose }: { open: boolean; o
               {activeMutedActors.map((actor) => (
                 <div
                   key={`actor-${actor.id}`}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2.5 flex items-center gap-2"
+                  className="card rounded-[12px] p-2.5 flex items-center gap-2"
                 >
                   <UserX className="w-4 h-4 text-[var(--warning)] shrink-0" />
                   <div className="min-w-0 flex-1">

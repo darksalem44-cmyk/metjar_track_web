@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ToastHost from "@/components/ui/ToastHost";
@@ -7,14 +7,11 @@ import PwaRegister from "@/components/pwa/PwaRegister";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import { AppConstants } from "@/lib/constants";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const plexArabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-app",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -51,16 +48,13 @@ const themeScript = `try{var t=localStorage.getItem('theme_mode');var d=t?t==='d
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang="ar" dir="rtl" className={plexArabic.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       {/* suppressHydrationWarning: إضافات المتصفح (مثل bis_register من إضافات الحماية) تُضاف
           إلى body قبل ترطيب React وتُسبب تحذير عدم تطابق وهمياً. */}
-      <body
-        suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} min-h-full antialiased`}
-      >
+      <body suppressHydrationWarning className="min-h-full antialiased">
         <ThemeProvider>
           {children}
           <ToastHost />

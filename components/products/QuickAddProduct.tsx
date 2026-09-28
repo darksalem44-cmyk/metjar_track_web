@@ -101,7 +101,7 @@ export default function QuickAddProduct({
           </div>
         </div>
         <CategoryAutocomplete label="التصنيف" value={category} onChange={setCategory} placeholder="اختر أو اكتب الفئة" />
-        <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
+        <div className="flex items-center justify-between card rounded-[12px] px-3.5 py-3">
           <div>
             <p className="text-[13px] font-semibold text-[var(--text)]">الأنسب مبيعاً</p>
             <p className="text-[11px] text-[var(--text-secondary)]">إبراز المنتج كالأكثر رواجاً</p>

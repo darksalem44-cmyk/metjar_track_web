@@ -23,6 +23,8 @@ const TOOLTIP_STYLE = {
   borderRadius: 12,
   border: '1px solid var(--border)',
   background: 'var(--surface)',
+  boxShadow: 'var(--shadow-lg)',
+  padding: '8px 10px',
   fontSize: 12,
   direction: 'rtl',
 } as const;
@@ -77,9 +79,9 @@ export default function ActivityWeeklyChart({
           <Legend
             formatter={(value: string) => <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{value}</span>}
           />
-          <Bar dataKey="created" name="إضافات" fill="var(--green)" radius={[3, 3, 0, 0]} maxBarSize={20} />
-          <Bar dataKey="updated" name="تعديلات" fill="var(--primary)" radius={[3, 3, 0, 0]} maxBarSize={20} />
-          <Bar dataKey="deleted" name="حذف" fill="var(--error)" radius={[3, 3, 0, 0]} maxBarSize={20} />
+          <Bar dataKey="created" name="إضافات" fill="var(--green)" radius={[4, 4, 0, 0]} maxBarSize={20} />
+          <Bar dataKey="updated" name="تعديلات" fill="var(--primary)" radius={[4, 4, 0, 0]} maxBarSize={20} />
+          <Bar dataKey="deleted" name="حذف" fill="var(--error)" radius={[4, 4, 0, 0]} maxBarSize={20} />
         </BarChart>
       </ResponsiveContainer>
     </div>

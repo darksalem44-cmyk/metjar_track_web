@@ -70,12 +70,12 @@ export default function AlertRow({ alert }: { alert: AdminAlert }) {
     <>
       <span
         className={cn(
-          'w-9 h-9 rounded-xl grid place-items-center shrink-0',
+          'w-9 h-9 rounded-[12px] grid place-items-center shrink-0 border',
           alert.severity === 'critical'
-            ? 'bg-[var(--error)]/10 text-[var(--error)]'
+            ? 'bg-[var(--error)]/10 text-[var(--error)] border-[var(--error)]/22'
             : alert.severity === 'warning'
-              ? 'bg-[var(--warning-surface)] text-[var(--warning)]'
-              : 'bg-[var(--primary-surface-light)] text-[var(--primary)]',
+              ? 'bg-[var(--warning-surface)] text-[var(--warning)] border-[var(--warning)]/25'
+              : 'bg-[var(--primary-surface)] text-[var(--primary-dark)] dark:text-[var(--accent-text)] border-[var(--primary)]/18',
         )}
       >
         <ActionIcon alert={alert} />
@@ -121,13 +121,21 @@ export default function AlertRow({ alert }: { alert: AdminAlert }) {
     </>
   );
 
+  const stripe =
+    alert.severity === 'critical'
+      ? 'bg-[var(--error)]'
+      : alert.severity === 'warning'
+        ? 'bg-[var(--warning)]'
+        : 'bg-[image:var(--primary-gradient)]';
+
   return (
-    <div className="w-full flex items-start gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3.5 transition-colors">
+    <div className="card card-hover anim-enter relative w-full flex items-start gap-2.5 p-3.5 ps-4 overflow-hidden">
+      <span className={cn('absolute start-0 inset-y-0 w-[3px]', stripe)} aria-hidden="true" />
       {target ? (
         <button
           type="button"
           onClick={() => router.push(target)}
-          className="flex items-start gap-3 flex-1 min-w-0 text-start rounded-xl hover:opacity-95"
+          className="flex items-start gap-3 flex-1 min-w-0 text-start rounded-xl transition-opacity hover:opacity-90 active:opacity-95"
         >
           {content}
         </button>
@@ -140,7 +148,7 @@ export default function AlertRow({ alert }: { alert: AdminAlert }) {
           type="button"
           onClick={() => setMuteOpen(true)}
           title="كتم هذا التنبيه"
-          className="grid place-items-center w-8 h-8 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] shrink-0"
+          className="grid place-items-center w-8 h-8 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-variant)] active:scale-90 transition-[background-color,color,transform] shrink-0"
         >
           <BellOff className="w-3.5 h-3.5" />
         </button>
@@ -194,7 +202,7 @@ export default function AlertRow({ alert }: { alert: AdminAlert }) {
 
 function MuteBlock({ label, onPick }: { label: string; onPick: (hours: number | null) => void }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+    <div className="card rounded-[12px] p-3">
       <p className="text-[12px] font-semibold text-[var(--text)] mb-2 truncate">{label}</p>
       <div className="flex flex-wrap items-center gap-1.5">
         {muteDurations.map((duration) => (
@@ -202,7 +210,7 @@ function MuteBlock({ label, onPick }: { label: string; onPick: (hours: number | 
             key={duration.key}
             type="button"
             onClick={() => onPick(duration.hours)}
-            className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--surface-variant)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-[var(--primary-light)] hover:text-[var(--text)] transition-colors"
+            className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--surface-variant)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-[var(--primary)]/45 hover:bg-[var(--primary-surface)] hover:text-[var(--primary-dark)] dark:hover:text-[var(--accent-text)] active:scale-95 transition-[background-color,border-color,color,transform]"
           >
             {duration.label}
           </button>
