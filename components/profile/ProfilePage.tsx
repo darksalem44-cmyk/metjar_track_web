@@ -15,6 +15,7 @@ import { Modal, ConfirmDialog } from '@/components/ui/modals';
 import { TextField } from '@/components/ui/fields';
 import { useTheme } from '@/components/ThemeProvider';
 import { useInstall, isStandalone } from '@/components/pwa/useInstall';
+import NotificationPrefsCard from '@/components/notifications/NotificationPrefsCard';
 import { LogOut, Pencil, Shield, Store, Package, User as UserIcon, Download, Smartphone, HardDriveDownload } from 'lucide-react';
 
 function subscribeDisplayMode(onChange: () => void): () => void {
@@ -210,6 +211,11 @@ export default function ProfilePage() {
 
       {profile.role === 'manager' && (
         <>
+          <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">التنبيهات</h3>
+          <div className="mb-6">
+            <NotificationPrefsCard />
+          </div>
+
           <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">لوحة الإدارة</h3>
           <div className="grid grid-cols-1 gap-2.5 mb-6">
             <button onClick={() => router.push({ name: 'employees' })} className="card p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors">

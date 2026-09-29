@@ -1,19 +1,26 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useProfile } from '@/components/ProfileContext';
-import { useRouter } from '@/components/RouterContext';
+import { pathToView, useRouter } from '@/components/RouterContext';
 import type { ActivityEntityType } from '@/lib/types';
 import {
   applyAlertSettings,
   defaultAlertSettings,
+  describeAlerts,
+  diffNewAlerts,
   fetchAdminAlertsResult,
   normalizeAlertSettings,
   subscribeToAlerts,
+  topSeverity,
   type AdminAlert,
   type AlertSettings,
+  type LiveAlertSettings,
 } from '@/lib/notifications';
+import { playAlertSound, armAlertSoundOnFirstGesture, resumeAlertSound, unlockAlertSound } from '@/lib/alert-sound';
+import { showSystemNotification, wireSystemNotificationClicks } from '@/lib/push';
+import { toast } from '@/lib/toast';
 
 interface AlertsState {
   /** التنبيهات الظاهرة بعد تطبيق القواعد والكتم */
@@ -32,6 +39,10 @@ interface AlertsState {
   refresh: () => Promise<void>;
   markAllSeen: () => void;
   saveSettings: (next: AlertSettings) => void;
+  /** يبدّل إعدادات الإشعار اللحظي (إشعار النظام / التنبيه الداخلي / الصوت) */
+  saveLive: (patch: Partial<LiveAlertSettings>) => void;
+  /** يفتح سياق الصوت بعد تفاعل المستخدم فيرتفع الحظر في المتصفح */
+  primeSound: () => void;
   muteEntity: (target: { id: string; label: string; entityType: ActivityEntityType }, until: string | null) => void;
   muteActor: (target: { id: string; name: string }, until: string | null) => void;
   unmute: (kind: 'entity' | 'actor', id: string) => void;
@@ -73,11 +84,50 @@ function readSettings(userId: string): AlertSettings {
 const POLL_INTERVAL = 90 * 1000;
 
 /**
+ * فترة أطول تُستعمل عندما تكون الصفحة في الخلفية أو المتصفح مصغّراً.
+ * المتصفح يخنق المؤقتات في التبويبات المخفية إلى نحو مرة في الدقيقة على أقل
+ * تقدير، فاختيار أقل من ذلك لا يفيد. نختار 70 ثانية عمداً: يقع ضمن نافذة التنقيح
+ * الدقيقة الواحدة، فيبقى الاستطلاع فعلياً على المتصفح المصغّر بدل أن يُجمد.
+ *
+ * ملاحظة مهمّة: هذه الطبقة تعمل ما دام المتصفح مفتوحاً. الإشعار عند إغلاق
+ * المتصفح بالكامل يحتاج Web Push من الخادم (دالة marginalize) — وهو منفصل.
+ */
+const BACKGROUND_POLL_INTERVAL = 70 * 1000;
+
+/**
+ * يعلن عن التنبيهات الجديدة: تنبيه داخل التطبيق + إشعار نظام + صوت.
+ * كلها محكومة بإعدادات المستخدم في `settings.live`، ولا شيء منها يوقف الجرس.
+ */
+function announceAlerts(alerts: AdminAlert[], live: LiveAlertSettings): void {
+  if (alerts.length === 0) return;
+  const copy = describeAlerts(alerts);
+  const severity = topSeverity(alerts);
+
+  if (live.sound) playAlertSound(severity);
+
+  if (live.toast) {
+    toast(copy.title, severity === 'critical' ? 'error' : 'info', 6000);
+  }
+
+  if (live.system) {
+    void showSystemNotification({
+      title: copy.title,
+      body: copy.body,
+      tag: copy.tag,
+      url: '/alerts',
+      // الحرج يبقى على الشاشة حتى يُغلق — على الكمبيوتر المصغّر يعني لا يفوته
+      requireInteraction: severity === 'critical',
+    });
+  }
+}
+
+/**
  * مصدر واحد لتنبيهات المدير: يجلبها، يشترك في الجديد لحظياً،
  * ويطبّق إعدادات القواعد والكتم المحفوظة في هذا المتصفح.
  */
 export function AlertsProvider({ children }: { children: React.ReactNode }) {
   const profile = useProfile();
+  const router = useRouter();
   const enabled = profile.role === 'manager';
 
   const [rawAlerts, setRawAlerts] = useState<AdminAlert[]>([]);
@@ -86,10 +136,30 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
   const [seenAt, setSeenAt] = useState<string | null>(() => readStorage(storageKey('seen', profile.id)));
   const [settings, setSettings] = useState<AlertSettings>(() => readSettings(profile.id));
 
+  // مرآة الإعدادات تُقرأ من داخل async حتى لا تُعاد دورة الجلب مع كل تغيير في مفتاح
+  const settingsRef = useRef(settings);
+  // معرّفات التنبيهات المرئية سابقاً — null يعني «لم نتحقق بعد» فلا إعلان عن الأقدم
+  const knownIdsRef = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
   const refresh = useCallback(async () => {
     if (!enabled) return;
     try {
       const result = await fetchAdminAlertsResult();
+      const known = knownIdsRef.current;
+      // أول تحميل: نسجّل ما يوجد ولا نُعلن عنه (إلا كان مجلداً حديثاً فعلاً)
+      if (known !== null) {
+        const fresh = applyAlertSettings(
+          diffNewAlerts(result.alerts, known),
+          settingsRef.current,
+          null,
+        ).alerts;
+        announceAlerts(fresh, settingsRef.current.live);
+      }
+      knownIdsRef.current = new Set(result.alerts.map((a) => a.id));
       setRawAlerts(result.alerts);
       setTruncated(result.truncated);
     } catch {
@@ -116,13 +186,40 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     // التحميل الأول مؤجّل لما بعد الرسم لتفادي تحديث متزامن داخل الـ effect نفسه
     const initial = requestAnimationFrame(() => void refresh());
     const unsubscribe = subscribeToAlerts(schedule);
+    // النقر على إشعار النظام: إمّا من عامل الخدمة (رسالة) أو من إشعار الصفحة مباشرة.
+    // نمرّ عبر الموجّه الداخلي (router.push) فلا تُفقد حالة الواجهة كما يحدث
+    // مع إعادة تحميل الصفحة، ويصلح أيضاً للتبويب المُجمَّد عند العودة.
+    const navigateTo = (url: string) => {
+      const path = new URL(url, window.location.origin);
+      if (path.origin !== window.location.origin) return;
+      window.focus();
+      const parsed = pathToView(path.pathname, path.search);
+      if (parsed) router.push(parsed);
+    };
+    const onServiceWorkerMessage = (event: MessageEvent) => {
+      const data = event.data as { type?: string; url?: string } | null;
+      if (data?.type === 'NOTIFICATION_CLICK' && data.url) navigateTo(data.url);
+    };
+    navigator.serviceWorker?.addEventListener('message', onServiceWorkerMessage);
+    // إشعارات الصفحة المباشرة (بلا عامل خدمة) لا تمرّ بالرسالة — نمررها هنا
+    const unwireClicks = wireSystemNotificationClicks(navigateTo);
+    // فتح الصوت عند أول نقرة/ضغطة مفتاح في الصفحة — شرط المتصفحات على الكمبيوتر
+    const disarmSound = armAlertSoundOnFirstGesture();
 
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
     }, POLL_INTERVAL);
 
+    // في الخلفية: نبضة أبطأ تضمن الإشعار حتى مع المتصفح مصغّراً أو بلا realtime
+    const background = setInterval(() => {
+      if (document.visibilityState !== 'visible') void refresh();
+    }, BACKGROUND_POLL_INTERVAL);
+
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') schedule();
+      if (document.visibilityState === 'visible') {
+        resumeAlertSound();
+        schedule();
+      }
     };
     document.addEventListener('visibilitychange', onVisibility);
 
@@ -131,10 +228,14 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
       cancelAnimationFrame(initial);
       if (timer) clearTimeout(timer);
       clearInterval(interval);
+      clearInterval(background);
       document.removeEventListener('visibilitychange', onVisibility);
+      navigator.serviceWorker?.removeEventListener('message', onServiceWorkerMessage);
+      unwireClicks();
+      disarmSound();
       unsubscribe();
     };
-  }, [enabled, refresh]);
+  }, [enabled, refresh, router]);
 
   const saveSettings = useCallback(
     (next: AlertSettings) => {
@@ -148,6 +249,24 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     [profile.id],
   );
 
+  const saveLive = useCallback(
+    (patch: Partial<LiveAlertSettings>) => {
+      setSettings((current) => {
+        const next: AlertSettings = { ...current, live: { ...current.live, ...patch } };
+        try {
+          window.localStorage.setItem(storageKey('settings', profile.id), JSON.stringify(next));
+        } catch {
+          // تجاهل
+        }
+        return next;
+      });
+    },
+    [profile.id],
+  );
+
+  const primeSound = useCallback(() => {
+    unlockAlertSound();
+  }, []);
   const muteEntity = useCallback(
     (target: { id: string; label: string; entityType: ActivityEntityType }, until: string | null) => {
       setSettings((current) => {
@@ -215,6 +334,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [profile.id]);
 
+  // الجرس والقائمة يعملان كالمعتاد — إعدادات الإشعار اللحظي لا تؤثر عليهما إطلاقاً
   const feed = useMemo(
     () => (enabled ? applyAlertSettings(rawAlerts, settings, seenAt) : { alerts: [], unread: 0, hiddenByRules: 0, muted: 0 }),
     [enabled, rawAlerts, settings, seenAt],
@@ -233,6 +353,8 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
       refresh,
       markAllSeen,
       saveSettings,
+      saveLive,
+      primeSound,
       muteEntity,
       muteActor,
       unmute,
@@ -246,6 +368,8 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
       refresh,
       markAllSeen,
       saveSettings,
+      saveLive,
+      primeSound,
       muteEntity,
       muteActor,
       unmute,

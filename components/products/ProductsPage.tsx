@@ -222,7 +222,16 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title={title}
-        subtitle={totalCount !== null ? `العدد الكلي: ${totalCount}` : undefined}
+        subtitle={
+          totalCount !== null ? (
+            <span className="flex items-center gap-2">
+              <span>إدارة المنتجات المعروضة للبيع</span>
+              <Chip tone="primary" label={`العدد الكلي: ${totalCount}`} />
+            </span>
+          ) : (
+            'إدارة المنتجات المعروضة للبيع'
+          )
+        }
         onBack={scope.type === 'all' ? undefined : () => router.pop()}
         trailing={
           canAdd && (

@@ -268,7 +268,7 @@ export default function AdminAccountsPage() {
         ))}
         <span className="w-px h-5 bg-[var(--border)] mx-1" />
         {([
-          ['all', 'الكل الحالات'],
+          ['all', 'كل الحالات'],
           ['active', 'نشط'],
           ['disabled', 'معطّل'],
         ] as [StatusFilter, string][]).map(([v, l]) => (

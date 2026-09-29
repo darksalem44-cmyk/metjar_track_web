@@ -39,13 +39,19 @@ self.addEventListener('push', (event) => {
       badge: '/icons/Icon-192.png',
       dir: 'rtl',
       lang: 'ar',
+      // renotify يسمح بتحديث نفس الوسم مع إعادة التنبيه
+      renotify: true,
+      silent: false,
       tag: payload.tag,
+      requireInteraction: !!payload.requireInteraction,
       data: { url: payload.url || '/alerts' },
     }),
   );
 });
 
-// النقر على الإشعار: يركّز التطبيق المفتوح أو يفتحه على الوجهة المطلوبة
+// النقر على الإشعار: نركّز نافذة التطبيق المفتوحة، أو نفتحها على الوجهة المطلوبة.
+// نتجنّب client.navigate هنا: إعادة تحميل الصفحة كاملة تفقد حالة الواجهة وتُبطئ الفتح،
+// والوجهة دائماً داخل التطبيق (SPA) فيكفي focus + إرسال رسالة للعميل ليتنقّل.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
@@ -54,7 +60,10 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.startsWith(self.location.origin)) {
-          if ('navigate' in client) client.navigate(target).catch(() => {});
+          // نطلب من العميل التنقّل بلطف، ثم نركّزه — لا إعادة تحميل
+          if (client.postMessage) {
+            client.postMessage({ type: 'NOTIFICATION_CLICK', url: target });
+          }
           return client.focus();
         }
       }

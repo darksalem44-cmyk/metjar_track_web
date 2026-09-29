@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, BellOff, BellRing, RotateCcw, UserX } from 'lucide-react';
 import { useProfile } from '@/components/ProfileContext';
 import { useAlerts } from '@/components/notifications/AlertsProvider';
+import NotificationPrefsCard from '@/components/notifications/NotificationPrefsCard';
 import {
   currentPushSubscription,
   disablePush,
@@ -101,7 +102,7 @@ export default function AlertSettingsModal({ open, onClose }: { open: boolean; o
   };
 
   const resetAll = () => {
-    if (!window.confirm('إعادة كل قواعد التنبيهات إلى الوضع الافتراضي وإلغاء كل الكتم؟')) return;
+    if (!window.confirm('إعادة كل إعدادات التنبيهات — القواعد والكتم وإعدادات الإشعار — إلى الوضع الافتراضي؟')) return;
     saveSettings(defaultAlertSettings());
   };
 
@@ -126,10 +127,19 @@ export default function AlertSettingsModal({ open, onClose }: { open: boolean; o
       <div className="space-y-4">
         <p className="text-[11px] text-[var(--text-secondary)] rounded-xl border border-[var(--border)] bg-[var(--surface-variant)] p-2.5">
           القواعد والكتم تُخفي التنبيهات عن العرض فقط — السجل في قاعدة البيانات يبقى كاملاً للمراجعة.
+          إعدادات الإشعار في أعلى الصفحة تتحكم فقط في التنبيه اللحظي ولا توقف الجرس ولا عدّه.
           الإعدادات محفوظة في هذا المتصفح.
           {(hiddenByRules > 0 || mutedCount > 0) &&
             ` (مخفي الآن: ${hiddenByRules} بالقواعد و${mutedCount} بالكتم)`}
         </p>
+
+        <div>
+          <p className="text-[12px] font-bold text-[var(--text)] mb-2 flex items-center gap-1.5">
+            <BellRing className="w-4 h-4 text-[var(--text-secondary)]" />
+            الإشعار عند كل تنبيه جديد
+          </p>
+          <NotificationPrefsCard compact />
+        </div>
 
         <div>
           <p className="text-[12px] font-bold text-[var(--text)] mb-2">القواعد</p>
@@ -175,13 +185,16 @@ export default function AlertSettingsModal({ open, onClose }: { open: boolean; o
         <div>
           <p className="text-[12px] font-bold text-[var(--text)] mb-2 flex items-center gap-1.5">
             <BellRing className="w-4 h-4 text-[var(--text-secondary)]" />
-            إشعارات النظام (PWA)
+            تقرير أسبوعي على هذا الجهاز (Web Push)
           </p>
           <div className="card rounded-[12px] p-3 flex items-start gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[12.5px] font-semibold text-[var(--text)]">تقرير أسبوعي وإشعار عند الحاجة</p>
+              <p className="text-[12.5px] font-semibold text-[var(--text)]">إشعار عند جاهزية التقرير الأسبوعي</p>
               <p className="text-[10.5px] text-[var(--text-secondary)] mt-0.5">
                 {push === 'loading' ? 'جاري التحقق...' : pushHints[push]}
+              </p>
+              <p className="text-[10.5px] text-[var(--text-muted)] mt-1">
+                يختلف عن الإشعار اللحظي أعلاه: هذا يصلك حتى لو كان التطبيق مغلقاً تماماً.
               </p>
               {push === 'off' && !pushConfigured() && (
                 <p className="text-[10.5px] text-[var(--text-muted)] mt-1">

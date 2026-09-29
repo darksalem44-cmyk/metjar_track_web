@@ -117,8 +117,22 @@ export interface MutedActor {
   until: string | null;
 }
 
+/**
+ * إعدادات الإشعار اللحظي عند وصول تنبيه جديد.
+ * هذه لا تمسّ عدّاد الجرس ولا إحصاءات القائمة — الجرس يعمل دائماً كما هو.
+ */
+export interface LiveAlertSettings {
+  /** إشعار نظام يظهر حتى والمتصفح مصغّر أو الصفحة في الخلفية */
+  system: boolean;
+  /** تنبيه مرئي داخل التطبيق (Toast) */
+  toast: boolean;
+  /** صوت تنبيه قصير (واهتزاز على الجوال إن سمح الجهاز) */
+  sound: boolean;
+}
+
 export interface AlertSettings {
-  version: 1;
+  version: 2;
+  live: LiveAlertSettings;
   rules: Record<AlertRuleKey, AlertRuleSettings>;
   mutedEntities: MutedEntity[];
   mutedActors: MutedActor[];
@@ -127,7 +141,8 @@ export interface AlertSettings {
 /** الافتراضي: كل القواعد مفعّلة، والإضافة الإخبارية لا تُحصى على الجرس. */
 export function defaultAlertSettings(): AlertSettings {
   return {
-    version: 1,
+    version: 2,
+    live: { system: true, toast: true, sound: true },
     rules: {
       store_deleted: { enabled: true, badge: true },
       branch_deleted: { enabled: true, badge: true },
@@ -141,6 +156,11 @@ export function defaultAlertSettings(): AlertSettings {
   };
 }
 
+/** يقرأ(boolean) قيمة من إعداد مخزّن، ويرتدّ إلى الافتراضي إن غابت أو لم تكن منطقية. */
+function readBool(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
 /** يملأ أي إعداد مخزّن ناقص (من نسخة سابقة) بالقيم الافتراضية. */
 export function normalizeAlertSettings(raw: Partial<AlertSettings> | null | undefined): AlertSettings {
   const defaults = defaultAlertSettings();
@@ -149,11 +169,21 @@ export function normalizeAlertSettings(raw: Partial<AlertSettings> | null | unde
   for (const key of Object.keys(defaults.rules) as AlertRuleKey[]) {
     const value = raw.rules?.[key];
     if (value && typeof value === 'object') {
-      rules[key] = { enabled: value.enabled !== false, badge: value.badge !== false };
+      // الغياب يُملأ من الافتراضي لا من «true» — وإلا انقلب «بلا عدّاد» إلى «يُحصى»
+      rules[key] = {
+        enabled: readBool(value.enabled, defaults.rules[key].enabled),
+        badge: readBool(value.badge, defaults.rules[key].badge),
+      };
     }
   }
+  const live = (raw as { live?: Partial<LiveAlertSettings> }).live;
   return {
-    version: 1,
+    version: 2,
+    live: {
+      system: readBool(live?.system, defaults.live.system),
+      toast: readBool(live?.toast, defaults.live.toast),
+      sound: readBool(live?.sound, defaults.live.sound),
+    },
     rules,
     mutedEntities: Array.isArray(raw.mutedEntities) ? raw.mutedEntities.slice(0, 200) : [],
     mutedActors: Array.isArray(raw.mutedActors) ? raw.mutedActors.slice(0, 200) : [],
@@ -237,9 +267,83 @@ export const severityTones: Record<AlertSeverity, 'error' | 'warning' | 'neutral
   info: 'neutral',
 };
 
+/** ترتيب الأهمية: الحرج يتقدّم على التحذير فالمعلوماتي. */
+const severityRank: Record<AlertSeverity, number> = { critical: 2, warning: 1, info: 0 };
+
 /** الخطير والمهم هو ما يستحق عدّاد الجرس (الحذف وتغيّر السعر والتعديلات). */
 export function isUnreadWorthy(severity: AlertSeverity): boolean {
   return severity !== 'info';
+}
+
+// ─────────────── وصف التنبيه للإشعار اللحظي ───────────────
+
+export interface AlertNotificationCopy {
+  title: string;
+  body: string;
+  /** وسم يجمع عدة إشعارات متتالية في بطاقة واحدة بدل تكديس الإشعارات */
+  tag: string;
+  severity: AlertSeverity;
+}
+
+function countLabel(count: number): string {
+  if (count === 1) return 'تنبيه واحد';
+  if (count === 2) return 'تنبيهان';
+  if (count <= 10) return `${count} تنبيهات`;
+  return `${count} تنبيهاً`;
+}
+
+/**
+ * يبني نص إشعار النظام من التنبيهات الواردة حديثاً.
+ * حدث واحد ⇒ تفاصيله كاملة، وعدة أحداث ⇒ ملخّص مع ذكر الأهم.
+ * دالة خالصة بلا اعتماد على المتصفح — قابلة للفحص في __smoke__.mjs.
+ */
+export function describeAlerts(alerts: AdminAlert[], maxBody = 180): AlertNotificationCopy {
+  if (alerts.length === 0) {
+    return { title: 'متجر تراك', body: 'لا توجد تنبيهات جديدة', tag: 'mt-alerts', severity: 'info' };
+  }
+
+  // الأهم أولاً: الحرج ثم التحذير ثم المعلوماتي
+  const ordered = [...alerts].sort((a, b) => severityRank[b.severity] - severityRank[a.severity]);
+  const top = ordered[0];
+  const first = top.title || top.entityName;
+
+  if (alerts.length === 1) {
+    const detail = [top.detail, top.actorName].filter(Boolean).join(' — ');
+    return {
+      title: first,
+      body: detail.slice(0, maxBody),
+      tag: `mt-alert-${top.id}`,
+      severity: top.severity,
+    };
+  }
+
+  const critical = alerts.filter((a) => a.severity === 'critical').length;
+  const title = critical > 0 ? `تنبيهات جديدة — ${critical} حرج` : 'تنبيهات جديدة';
+  const body = [countLabel(alerts.length), first].filter(Boolean).join(' • ');
+  return {
+    title,
+    body: body.slice(0, maxBody),
+    tag: 'mt-alerts-batch',
+    severity: top.severity,
+  };
+}
+
+/**
+ * يستخرج التنبيهات التي لم تكن معروفة سابقاً بالترتيب.
+ * يُستخدم لمتابعة «ما وصل حديثاً» فقط — أول تحميل يجب ألا يُعلن عن كل الأقدم.
+ */
+export function diffNewAlerts(current: AdminAlert[], known: ReadonlySet<string> | null): AdminAlert[] {
+  if (known === null) return [];
+  return current.filter((alert) => !known.has(alert.id));
+}
+
+/** أكثر تنبيه خطورة ضمن قائمة — لتلوين الإشعار وصوت التنبيه. */
+export function topSeverity(alerts: AdminAlert[]): AlertSeverity {
+  let top: AlertSeverity = 'info';
+  for (const alert of alerts) {
+    if (severityRank[alert.severity] > severityRank[top]) top = alert.severity;
+  }
+  return top;
 }
 
 // ─────────────── قواعد التصنيف (دوال خالصة قابلة للفحص) ───────────────
@@ -649,8 +753,6 @@ let channelSequence = 0;
 
 /** المدة التي تُدمج خلالها تعديلات نفس الكيان في تنبيه واحد. */
 export const ALERT_GROUP_WINDOW_MINUTES = 60;
-
-const severityRank: Record<AlertSeverity, number> = { critical: 2, warning: 1, info: 0 };
 
 function updatesCountLabel(count: number): string {
   if (count === 2) return 'تعديلان';

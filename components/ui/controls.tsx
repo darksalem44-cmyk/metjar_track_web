@@ -378,7 +378,8 @@ export function PageHeader({
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <path d="M15 18l-6-6 6-6" />
+              {/* سهم الرجوع يشير لليمين ليطابق اتجاه القراءة العربي */}
+              <path d="M9 18l6-6-6-6" />
             </svg>
           </button>
         )}

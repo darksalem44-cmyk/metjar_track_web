@@ -208,11 +208,28 @@ eq('rule تعديل عام', notifications.alertRuleKey('updated', 'store', fals
 const defaults = notifications.defaultAlertSettings();
 eq('default badge الإضافة', defaults.rules.entity_created.badge, false);
 eq('default badge الحذف', defaults.rules.store_deleted.badge, true);
+eq('default live system', defaults.live.system, true);
+eq('default live toast', defaults.live.toast, true);
+eq('default live sound', defaults.live.sound, true);
 const norm = notifications.normalizeAlertSettings({ rules: { entity_created: { enabled: false } }, mutedEntities: 'not-array' });
 eq('normalize يعطّل القاعدة', norm.rules.entity_created.enabled, false);
 eq('normalize يملأ الباقي', norm.rules.store_deleted.enabled, true);
 eq('normalize يصلح المصفوفة', Array.isArray(norm.mutedEntities), true);
 eq('normalize null', notifications.normalizeAlertSettings(null).rules.branch_deleted.enabled, true);
+
+// خلل سابق: قاعدة ناقصة الحقل badge كانت تنقلب إلى true ف.inflate العدّاد
+eq('normalize لا ينقلب badge الناقص إلى true', norm.rules.entity_created.badge, false);
+// القيم المخزنة تُحترم صراحةً في الاتجاهين
+const normExplicit = notifications.normalizeAlertSettings({ rules: { entity_created: { enabled: true, badge: true } } });
+eq('normalize يحترم badge المخزّن true', normExplicit.rules.entity_created.badge, true);
+// إعدادات الإشعار اللحظي: القيمة المخزنة تُحترم، والغائبة تُملأ افتراضياً
+const normLive = notifications.normalizeAlertSettings({ live: { system: false } });
+eq('normalize live المخزّن', normLive.live.system, false);
+eq('normalize live الناقص افتراضي', normLive.live.sound, true);
+eq('normalize live القيم الغريبة تُردّ', notifications.normalizeAlertSettings({ live: { toast: 'yes' } }).live.toast, true);
+eq('normalize إصدار 2', norm.version, 2);
+// إعداد قديم بلاVersion ولا live يهاجر بلا انهيار
+eq('normalize قديم لا ينهار', notifications.normalizeAlertSettings({ rules: {} }).version, 2);
 
 eq('isMuteActive دائم', notifications.isMuteActive(null, NOW), true);
 eq('isMuteActive مستقبل', notifications.isMuteActive('2027-01-01T00:00:00Z', NOW), true);
@@ -250,6 +267,73 @@ includes('group عنوان', g1.title, 'تعديلان على المنتج «ك�
 eq('group ترقية الخطورة', g1.severity, 'critical');
 includes('group تفصيل السعر يتقدم', g1.detail, 'السعر');
 check('group لا يدمج المتباعد', (grouped.find((g) => g.eventAt === '2026-09-22T08:00:00')?.count ?? 1) === 1, true);
+
+// ═══════════ 5ب) وصف الإشعار اللحظي ومطابقة الجديد (lib/notifications.ts) ═══════════
+// حدث واحد: العنوان = جملة الحدث، والجسم = التفصيل + الفاعل
+const copyOne = notifications.describeAlerts([
+  alert({ id: 'n1', severity: 'critical', action: 'deleted', rule: 'store_deleted', title: 'حذف للمتجر «متجر الساعة»', detail: 'حذف نهائي' }),
+]);
+eq('describe واحد العنوان', copyOne.title, 'حذف للمتجر «متجر الساعة»');
+includes('describe واحد الجسم', copyOne.body, 'حذف نهائي');
+includes('describe واحد الفاعل', copyOne.body, 'أحمد');
+eq('describe واحد الخطورة', copyOne.severity, 'critical');
+eq('describe واحد الوسم', copyOne.tag, 'mt-alert-n1');
+
+// عدة أحداث: ملخّص بعدّاد + عدد الحرج، والأهم أولاً في الترتيب
+const copyMany = notifications.describeAlerts([
+  alert({ id: 'n2', severity: 'info', title: 'أنشأ متجراً' }),
+  alert({ id: 'n3', severity: 'warning', title: 'عدّل فرعاً' }),
+  alert({ id: 'n4', severity: 'critical', title: 'حذف منتجاً' }),
+]);
+includes('describe متعدد العنوان', copyMany.title, 'تنبيهات جديدة');
+includes('describe متعدد الحرج في العنوان', copyMany.title, '1 حرج');
+includes('describe متعدد العدد في الجسم', copyMany.body, '3 تنبيهات');
+includes('describe متعدد الأهم في الجسم', copyMany.body, 'حذف منتجاً');
+eq('describe متعدد الوسم', copyMany.tag, 'mt-alerts-batch');
+eq('describe متعدد الخطورة', copyMany.severity, 'critical');
+// بلا حرج: العنوان بلا عدّاد حرج
+const copyNoCritical = notifications.describeAlerts([
+  alert({ id: 'm1', severity: 'info', title: 'أنشأ متجراً' }),
+  alert({ id: 'm2', severity: 'warning', title: 'عدّل فرعاً' }),
+]);
+eq('describe بلا حرج العنوان', copyNoCritical.title, 'تنبيهات جديدة');
+includes('describe بلا حرج الأهم', copyNoCritical.body, 'عدّل فرعاً');
+eq('describe فارغ', notifications.describeAlerts([]).body, 'لا توجد تنبيهات جديدة');
+
+// وصف مختصر يُقصّ عند تجاوز الحد
+const copyLong = notifications.describeAlerts([alert({ id: 'n5', title: 'ح'.repeat(400), detail: '' })], 50);
+check('describe يقصّ الجسم', copyLong.body.length <= 50, String(copyLong.body.length));
+
+// topSeverity: الأهم في القائمة
+eq('topSeverity حرج', notifications.topSeverity([alert({ severity: 'info' }), alert({ severity: 'critical' })]), 'critical');
+eq('topSeverity معلوماتي', notifications.topSeverity([alert({ severity: 'info' })]), 'info');
+eq('topSeverity فارغ', notifications.topSeverity([]), 'info');
+
+// diffNewAlerts: null = أول تحميل (لا إعلان عن كل الأقدم)
+const knownIds = new Set(['a1', 'a2']);
+eq('diff أول تحميل لا يعلن', notifications.diffNewAlerts([alert({ id: 'a1' }), alert({ id: 'a2' })], null).length, 0);
+const fresh = notifications.diffNewAlerts([alert({ id: 'a1' }), alert({ id: 'a9' }), alert({ id: 'a8' })], knownIds);
+eq('diff يختار الجديد فقط', fresh.map((x) => x.id).join(','), 'a9,a8');
+// حدث قادم لا ينبّه إن كانت قاعدته معطّلة أو كان مكتوماً
+const freshDisabled = notifications.applyAlertSettings(
+  notifications.diffNewAlerts([alert({ id: 'a9', rule: 'store_deleted' })], knownIds),
+  { ...defaults, rules: { ...defaults.rules, store_deleted: { enabled: false, badge: true } } },
+  null,
+).alerts;
+eq('diff مع قاعدة معطلة لا ينبّه', freshDisabled.length, 0);
+const freshMuted = notifications.applyAlertSettings(
+  notifications.diffNewAlerts([alert({ id: 'a9' })], knownIds),
+  { ...defaults, mutedActors: [{ id: 'u1', name: 'أحمد', until: null }] },
+  null,
+).alerts;
+eq('diff مع كتم لا ينبّه', freshMuted.length, 0);
+// الجديد يستحق الجرس (غير مقروء) عند seenAt قديم — نستخدم قواعد تُحصى (م.Counted) لا الإضافة الإخبارية
+const countedFresh = notifications.diffNewAlerts([
+  alert({ id: 'a9', rule: 'store_deleted', action: 'deleted', severity: 'critical' }),
+  alert({ id: 'a8', rule: 'product_price_changed' }),
+], knownIds);
+eq('diff الجديد غير مقروء', notifications.applyAlertSettings(countedFresh, defaults, '2026-09-01T00:00:00Z', NOW).unread, 2);
+eq('diff الجديد مرئي', notifications.applyAlertSettings(countedFresh, defaults, '2026-09-01T00:00:00Z', NOW).alerts.length, 2);
 
 // ═══════════ 6) الأرشيف الأسبوعي ═══════════
 const archive = notifications.buildWeeklyArchive([
@@ -446,6 +530,92 @@ const padBytes = push.urlBase64ToUint8Array('a-b');
 const padPlain = push.urlBase64ToUint8Array('a+b');
 check('urlBase64 حشوة قصيرة', padBytes.length === 2 && padBytes.every((b, i) => b === padPlain[i]), JSON.stringify([...padBytes]));
 
+// 12-ب) إشعار النظام اللحظي: يعمل بلا VAPID وبلا اشتراك push، والPermission يقرأ من window
+eq('push systemPermission unsupported بلا Notification', push.systemPermission(), 'unsupported');
+eq('push showSystemNotification لا تفعل شيئاً بلا إذن', await push.showSystemNotification({ title: 'x', body: 'y', tag: 't' }), false);
+
+const swNotifications = [];
+globalThis.Notification = class {
+  static permission = 'granted';
+  constructor(title, options) { this.title = title; this.options = options; this.shown = true; }
+};
+eq('push systemPermission granted', push.systemPermission(), 'granted');
+eq('push requestSystemPermission ترجع الحالة الحالية', await push.requestSystemPermission(), 'granted');
+includes('push hint granted', push.systemPermissionHints.granted, 'مسموح');
+includes('push hint denied', push.systemPermissionHints.denied, 'منع');
+eq('push systemNotificationsSupported', push.systemNotificationsSupported(), true);
+// بلا عامل خدمة، تسقط إلى new Notification وتُعرض بنجاح
+eq('push showSystemNotification granted تعرض', await push.showSystemNotification({ title: 'تنبيه', body: 'نص', tag: 'mt-alert-x' }), true);
+delete globalThis.Notification;
+
+// 12-ب-2) المسار المفضّل: عامل الخدمة المسجَّل — هذا ما يبقي الإشعار ظاهراً مع تصغير المتصفح
+// نتأكد أن showNotification من عامل الخدمة هو المستخدم، لا new Notification
+const capturedReg = {
+  active: {},
+  async showNotification(title, options) { swNotifications.push({ title, options }); },
+};
+// navigator للقراءة فقط في Node — نعرّفه عبر defineProperty
+Object.defineProperty(globalThis, 'navigator', {
+  configurable: true,
+  value: {
+    serviceWorker: {
+      async getRegistration() { return capturedReg; },
+      register: async () => capturedReg,
+      ready: Promise.resolve(capturedReg),
+    },
+  },
+});
+globalThis.Notification = class { static permission = 'granted'; constructor() { throw new Error('يجب ألا نستخدم new Notification'); } };
+eq('push showSystemNotification يفضّل عامل الخدمة', await push.showSystemNotification({ title: 'حرج', body: 'نص', tag: 'mt-alert-crit', requireInteraction: true }), true);
+eq('push عامل الخدمة استُدعي مرة واحدة', swNotifications.length, 1);
+eq('push الإشعار يصل بنفس العنوان', swNotifications[0] && swNotifications[0].title, 'حرج');
+eq('push critical يبقى على الشاشة', swNotifications[0] && swNotifications[0].options.requireInteraction, true);
+eq('push الصوت غير مكتوم صراحةً', swNotifications[0] && swNotifications[0].options.silent, false);
+eq('push الاتجاه من اليمين لليسار', swNotifications[0] && swNotifications[0].options.dir, 'rtl');
+eq('push ensureServiceWorker يعيد التسجيل', !!(await push.ensureServiceWorker()), true);
+delete globalThis.Notification;
+delete globalThis.navigator;
+
+// 12-ج) بلا Web Audio لا يرمي — يُحمَّل قبل إضافة AudioContext أعلاه
+const alertSoundBare = load('lib/alert-sound.ts');
+eq('alertSound بلا AudioContext لا يدعم', alertSoundBare.alertSoundSupported(), false);
+let soundThrew = null;
+try { alertSoundBare.playAlertSound('critical'); } catch (e) { soundThrew = String(e); }
+eq('alertSound بلا دعم لا يرمي', soundThrew, null);
+try { alertSoundBare.unlockAlertSound(); alertSoundBare.resumeAlertSound(); } catch (e) { check('alertSound unlock/resume لا يرمي', false, String(e)); }
+check('alertSound unlock/resume لا يرمي', true);
+
+// 12-ج-2) إصلاح سباق الفتح: النغمة يجب أن تُجدوَل حتى لو كان السياق suspended وقت الطلب
+// هذا بالضبط ما كان يمنع الصوت على الكمبيوتر: playAlertSound بعد unlock مباشرة.
+let createdNodes = 0;
+let resumeCalls = 0;
+class FakeCtx {
+  constructor() { this.state = 'suspended'; this.currentTime = 0; this.sampleRate = 48000; this.destination = {}; }
+  async resume() { resumeCalls += 1; this.state = 'running'; }
+  createBuffer(ch, len) { createdNodes += 1; return { get length() { return len; } }; }
+  createBufferSource() { return { buffer: null, connect() {}, start() {} }; }
+  createOscillator() { createdNodes += 1; return { type: '', frequency: { value: 0 }, connect() { return this; }, start() {}, stop() {} }; }
+  createGain() { createdNodes += 1; return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() { return this; } }; }
+}
+globalThis.AudioContext = FakeCtx;
+const sound = load('lib/alert-sound.ts');
+eq('alertSound يدعم بعد إضافة AudioContext', sound.alertSoundSupported(), true);
+// الإصلاح الأساسي: playAlertSound يجدول النغمات حتى لو كان السياق suspended
+// (كان يُرجع locked فوراً فلا يصدر صوت على الكمبيوتر)
+const beforeGesture = createdNodes;
+const preResult = sound.playAlertSound('critical');
+check('alertSound يجدول النغمة رغم suspended', createdNodes > beforeGesture, `nodes=${createdNodes - beforeGesture}`);
+check('alertSound نتيجة صالحة قبل التفاعل', preResult.reason === 'played' || preResult.reason === 'locked', preResult.reason);
+// ثم محاكاة تفاعل المستخدم وفتح السياق
+sound.unlockAlertSound();
+const afterGesture = sound.playAlertSound('critical');
+eq('alertSound يجدول النغمة بعد التفاعل', createdNodes > 0, true);
+check('alertSound النتيجة بعد التفاعل', afterGesture.reason === 'played' || afterGesture.reason === 'locked', afterGesture.reason);
+eq('alertSound استدعاء resume عند الحاجة', resumeCalls >= 1, true);
+// النغمة المتكررة لا ترمي
+eq('alertSound critical مرتين لا ترمي', (sound.playAlertSound('critical'), sound.playAlertSound('warning').reason !== undefined), true);
+delete globalThis.AudioContext;
+
 // ═══════════ 13) سلوك حقيقي: جلب التنبيهات من Supabase والاشتراك اللحظي ═══════════
 // fetchAdminAlerts بلا جلسة RLS: يجب ألا يرمي (يُعيد قائمة فارغة) أو يرمي خطأ مترجماً — ليس انهياراً غير معالج
 let fetchAlertsBehavior = 'unknown';
@@ -556,9 +726,32 @@ for (const mod of [
   'components/branches/BranchDetails.tsx',
   'components/activities/ActivitiesList.tsx',
   'components/profile/ProfilePage.tsx',
+  'components/notifications/NotificationPrefsCard.tsx',
+  'components/notifications/AlertSettingsModal.tsx',
+  'components/notifications/AlertsProvider.tsx',
+  'components/pwa/PwaRegister.tsx',
+  'lib/alert-sound.ts',
 ]) {
   try { load(mod); check(`تحميل ${mod}`, true); }
   catch (e) { check(`تحميل ${mod}`, false, String(e)); }
+}
+
+// PwaRegister: يجب ألا يقصر تسجيل عامل الخدمة على الإنتاج، وإلا اختفت
+// إشعارات النظام على الكمبيوتر أثناء التجربة المحلية (سبب بلاغ المستخدم).
+{
+  const src = fs.readFileSync('components/pwa/PwaRegister.tsx', 'utf8');
+  check('PwaRegister لا يحصر التسجيل بالإنتاج', !/NODE_ENV\s*!==\s*'production'/.test(src), 'وجدنا قيد NODE_ENV');
+  check('PwaRegister يضمن تسجيل عامل الخدمة', src.includes('ensureServiceWorker'), 'ensureServiceWorker غير مستخدم');
+  // عامل الخدمة يركّز النافذة بدل إعادة تحميل الصفحة (client.navigate في الكود لا في التعليق)
+  const sw = fs.readFileSync('public/sw.js', 'utf8');
+  const swCode = sw.replace(/\/\/[^\n]*/g, '');
+  check('sw لا يعيد تحميل الصفحة عند النقر', !/client\.navigate\s*\(/.test(swCode), 'client.navigate مستدعى في الكود');
+  check('sw يركّز النافذة المفتوحة', swCode.includes('client.focus'), 'client.focus غير موجود');
+  check('sw صوت الإشعار غير مكتوم', /silent:\s*false/.test(swCode), 'silent:false غير موجود');
+  // الخلفية لا تُترك لخمس دقائق: Chrome يجمّد التبويب الخامل فيتوقف الاستطلاع
+  const provider = fs.readFileSync('components/notifications/AlertsProvider.tsx', 'utf8');
+  const bg = provider.match(/BACKGROUND_POLL_INTERVAL\s*=\s*(\d+)/);
+  check('استطلاع الخلفية أقرب من دقيقتين', !!bg && Number(bg[1]) <= 120000, bg ? `${bg[1]}ms` : 'غير موجود');
 }
 
 // ═══════════ 17) الملف الشخصي: تعديل اسم المدير ═══════════

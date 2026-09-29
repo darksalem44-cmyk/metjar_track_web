@@ -130,3 +130,149 @@ export async function disablePush(): Promise<void> {
   }
   await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
 }
+
+// ─────────────── إشعار النظام اللحظي (بدون اشتراك Push) ───────────────
+
+/**
+ * إشعار النظام اللحظي عبر Notification API.
+ *
+ * لماذا يمرّ عبر عامل الخدمة (ServiceWorkerRegistration.showNotification) لا عبر
+ * `new Notification` مباشرة؟ لأن الأخير يختفي غالباً عند تصغير المتصفح أو الانتقال
+ * لتبويب آخر، بينما إشعار عامل الخدمة يُسلَّم لنظام التشغيل فيبقى كإشعار حقيقي
+ * على شاشة الكمبيوتر — تماماً كما يفعل WhatsApp Desktop.
+ *
+ * لا يحتاج خادماً ولا مفاتيح VAPID؛ أما Web Push فوق فهو منفصل للتقرير الأسبوعي.
+ */
+
+export type SystemPermission = 'granted' | 'denied' | 'default' | 'unsupported';
+
+export function systemNotificationsSupported(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+
+/** حالة إذن إشعار النظام كما يراها المتصفح الآن. */
+export function systemPermission(): SystemPermission {
+  if (!systemNotificationsSupported()) return 'unsupported';
+  return Notification.permission as SystemPermission;
+}
+
+/** يطلب إذن إشعار النظام. يجب استدعاؤه من تفاعل مباشر (نقرة زر). */
+export async function requestSystemPermission(): Promise<SystemPermission> {
+  if (!systemNotificationsSupported()) return 'unsupported';
+  if (Notification.permission !== 'default') return Notification.permission as SystemPermission;
+  try {
+    return (await Notification.requestPermission()) as SystemPermission;
+  } catch {
+    return 'denied';
+  }
+}
+
+export const systemPermissionHints: Record<SystemPermission, string> = {
+  granted: 'مسموح — سيظهر إشعار النظام عند كل تنبيه جديد، حتى والمتصفح مصغّر.',
+  denied: 'المتصفح يمنع إشعارات النظام — اسمح بها من إعدادات الموقع في المتصفح (أيقونة القفل).',
+  default: 'لم يُمنح الإذن بعد — اضغط المفتاح للسماح.',
+  unsupported: 'المتصفح أو الجهاز لا يدعم إشعارات النظام.',
+};
+
+export interface SystemNotificationOptions {
+  title: string;
+  body: string;
+  tag: string;
+  /** فتح التطبيق على صفحة التنبيهات عند النقر */
+  url?: string;
+  /** إشعار عاجل يبقى على الشاشة حتى التفاعل (للأحداث الحرجة) */
+  requireInteraction?: boolean;
+}
+
+/** التسجيل مُؤمَّن: يُعيد نفس الوعد مهما نُودي به عدد المرات. */
+let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
+
+/**
+ * يضمن وجود عامل خدمة مسجَّل ومُفعَّل — شرط ضروري ليصل الإشعار إلى نظام التشغيل
+ * بينما الصفحة في الخلفية. التسجيل يحدث مرة واحدة ويُخزَّن وعده.
+ */
+export function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return Promise.resolve(null);
+  }
+  if (!registrationPromise) {
+    registrationPromise = (async () => {
+      try {
+        const existing = await navigator.serviceWorker.getRegistration();
+        if (existing) {
+          // لو كان مسجّلاً لكنه لم يصبح نشطاً بعد، ننتظر جاهزيته
+          if (existing.active) return existing;
+          await navigator.serviceWorker.ready;
+          return (await navigator.serviceWorker.getRegistration()) ?? existing;
+        }
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        return reg;
+      } catch {
+        // فشلت — نُفرّغ الوعد كي تُعاد المحاولة في التحديث القادم
+        registrationPromise = null;
+        return null;
+      }
+    })();
+  }
+  return registrationPromise;
+}
+
+/**
+ * يعرض إشعار النظام عبر عامل الخدمة (يظهر مع تصغير المتصفح)،
+ * ويرتدّ إلى `new Notification` كحل أخير.
+ * يرجع true إن عُرض فعلاً.
+ */
+export async function showSystemNotification(opts: SystemNotificationOptions): Promise<boolean> {
+  if (systemPermission() !== 'granted') return false;
+
+  const payload: NotificationOptions = {
+    body: opts.body,
+    icon: '/icons/Icon-192.png',
+    badge: '/icons/Icon-192.png',
+    tag: opts.tag,
+    dir: 'rtl',
+    lang: 'ar',
+    // silent:false صراحةً — بعض المتصفحات ترث الوضع الصامت من التخزين
+    silent: false,
+    requireInteraction: opts.requireInteraction ?? false,
+    data: { url: opts.url ?? '/alerts' },
+  };
+
+  // المسار المفضّل: عامل الخدمة — الإشعار يذهب لنظام التشغيل ويبقى ظاهراً
+  try {
+    const reg = await ensureServiceWorker();
+    if (reg) {
+      await reg.showNotification(opts.title, payload);
+      return true;
+    }
+  } catch {
+    // بعض البيئات (وضع خاص / Development) تمنع showNotification — نكمل
+  }
+
+  // تراجع: إشعار مباشر — يعمل في التبويب الأمامي فقط
+  try {
+    new Notification(opts.title, payload);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * النقر على إشعار نظام معروض من الصفحة مباشرة (لا من عامل الخدمة).
+ * يُمرَّر مسار الوجهة إلى `onNavigate` بدل إعادة تحميل الصفحة كاملة،
+ * فيبقى المستخدم داخل التطبيق بلا فقدان للحالة.
+ */
+export function wireSystemNotificationClicks(onNavigate: (url: string) => void): () => void {
+  if (typeof window === 'undefined' || !('Notification' in window)) return () => {};
+  const handler = (event: Event) => {
+    const clicked = (event as Event & { notification?: Notification }).notification;
+    clicked?.close();
+    const target = (clicked?.data as { url?: string } | undefined)?.url ?? '/alerts';
+    onNavigate(target);
+  };
+  window.addEventListener('notificationclick', handler as EventListener);
+  return () => window.removeEventListener('notificationclick', handler as EventListener);
+}
+

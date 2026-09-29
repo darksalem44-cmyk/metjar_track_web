@@ -1,22 +1,24 @@
 'use client';
 
 import { useEffect } from 'react';
+import { ensureServiceWorker } from '@/lib/push';
 
-/** يسجّل عامل الخدمة بعد تحميل الصفحة (إنتاج فقط). */
+/**
+ * يسجّل عامل الخدمة اللازم لعرض إشعارات النظام حتى والمتصفح مصغّر.
+ * التسجيل يجري فور الجاهزية لا عند `load`، حتى لا يضيع أول تنبيه
+ * على مستخدم فتح التطبيق للتو.
+ */
 export default function PwaRegister() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') return;
+    if (typeof window === 'undefined') return;
     if (!('serviceWorker' in navigator)) return;
 
-    const onLoad = () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        // فشل التسجيل لا يؤثر على التطبيق
-      });
-    };
-
-    if (document.readyState === 'complete') onLoad();
-    else window.addEventListener('load', onLoad);
-    return () => window.removeEventListener('load', onLoad);
+    // التسجيل في الخلفية مع تجاهل الفشل — لا ننتظره لأنه لا يحجب العرض.
+    // يعمل في التطوير أيضاً: بدونه لا تظهر إشعارات النظام على الكمبيوتر،
+    // ولأن مطوّراً يجرّب الميزة محلياً يجب أن يراها فعلاً.
+    void ensureServiceWorker().catch(() => {
+      // فشل التسجيل لا يؤثر على التطبيق — الإشعارات تسقط إلى new Notification
+    });
   }, []);
 
   return null;

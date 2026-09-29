@@ -47,6 +47,8 @@ export default function AlertsPage() {
   const criticalCount = alerts.filter((a) => a.severity === 'critical').length;
   // كم حدثاً اختفى من العرض بسبب الدمج
   const mergedCount = alerts.length - rows.length;
+  // الفلتر يخفي التنبيهات التي ما زالت على الجرس — بلا تنبيه يبدو للمستخدم خاطئ
+  const hiddenByFilter = severity !== 'all' && filtered.length === 0 && rows.length > 0;
 
   if (!isManager) {
     return (
@@ -119,6 +121,19 @@ export default function AlertsPage() {
         </div>
         <Toggle checked={grouping} onChange={setGrouping} size="sm" />
       </div>
+
+      {hiddenByFilter && (
+        <button
+          type="button"
+          onClick={() => setSeverity('all')}
+          className="w-full mb-3 rounded-[12px] border border-[var(--primary)]/30 bg-[var(--primary-surface)] px-3.5 py-2.5 flex items-center justify-between gap-3 text-start hover:bg-[var(--primary-surface-light)] transition-colors"
+        >
+          <span className="text-[12px] font-semibold text-[var(--primary)]">
+            توجد {rows.length} تنبيهاً خارج تصنيف «{SEVERITY_FILTERS.find(([v]) => v === severity)?.[1]}»
+          </span>
+          <span className="text-[11px] font-bold text-[var(--primary)] shrink-0">عرض الكل</span>
+        </button>
+      )}
 
       {loading ? (
         <CenteredSpinner label="جاري تحميل التنبيهات..." />
