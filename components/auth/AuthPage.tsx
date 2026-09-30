@@ -2,31 +2,24 @@
 
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ensureProfileRow } from '@/lib/data/profiles';
-import { Store, Lock, Mail, User, Eye, EyeOff, AlertCircle, BarChart3, Bell } from 'lucide-react';
+import { Store, Lock, Mail, Eye, EyeOff, AlertCircle, BarChart3, Bell } from 'lucide-react';
 import { translateError } from '@/lib/constants';
-import { emailValidator, passwordValidator, nameValidator } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
 
-type Mode = 'login' | 'signup';
-
-export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode }) {
-  const [mode, setMode] = useState<Mode>(initialMode);
+/**
+ * شاشة الدخول فقط: إنشاء الحسابات يتم من لوحة الإدارة (إدارة الحسابات)
+ * ولا يُسمح بأي تسجيل ذاتي من الموقع.
+ */
+export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
 
-  const nameId = useId();
   const emailId = useId();
   const passId = useId();
-  const confirmId = useId();
   const submitOnEnter = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !loading) void handleSubmit();
   };
@@ -35,8 +28,6 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
   // دون تحديث حالة React، فقراءة القيمة الفعلية من DOM تضمن صحتها عند الإرسال.
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
-  const fullNameRef = useRef<HTMLInputElement>(null);
-  const confirmRef = useRef<HTMLInputElement>(null);
 
   const fail = (msg: string) => {
     setError(msg);
@@ -47,71 +38,29 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
     // القيم الفعلية من الحقول مع الاحتفاظ بالحالة كبديل احتياطي
     const emailValue = (emailRef.current?.value ?? email).trim();
     const passwordValue = passwordRef.current?.value ?? password;
-    const fullNameValue = (fullNameRef.current?.value ?? fullName).trim();
-    const confirmValue = confirmRef.current?.value ?? confirm;
 
     // مزامنة الحالة مع القيم الفعلية (للملء التلقائي وغيره)
     setEmail(emailValue);
     setPassword(passwordValue);
-    setFullName(fullNameValue);
-    setConfirm(confirmValue);
 
     if (!emailValue) return fail('يرجى إدخال بريد إلكتروني صحيح');
-    if (mode === 'signup') {
-      if (!emailValidator(emailValue)) return fail('يرجى إدخال بريد إلكتروني صحيح');
-      if (!passwordValidator(passwordValue)) return fail('كلمة المرور يجب أن تكون 8 محارف على الأقل');
-      if (!nameValidator(fullNameValue)) return fail('الاسم مطلوب');
-      if (!passwordValidator(confirmValue)) return fail('تأكيد كلمة المرور مطلوب');
-      if (passwordValue !== confirmValue) return fail('كلمتا المرور غير متطابقتين');
-      if (!agreed) return fail('يرجى الموافقة على شروط الاستخدام');
-    } else {
-      // تسجيل الدخول: يُكتفى بوجود بريد غير فارغ، صحة الصيغة تقع على الخادم
-      if (!passwordValue) return fail('كلمة المرور مطلوبة');
-    }
+    // تسجيل الدخول: يُكتفى بوجود بريد غير فارغ، صحة الصيغة تقع على الخادم
+    if (!passwordValue) return fail('كلمة المرور مطلوبة');
 
     setLoading(true);
     setError(null);
     try {
-      if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: emailValue,
-          password: passwordValue,
-        });
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email: emailValue,
-          password: passwordValue,
-          options: {
-            data: { full_name: fullNameValue },
-          },
-        });
-        if (error) throw error;
-        // كما في تطبيق الموبايل: نضمن وجود صف profile للحساب الجديد
-        if (data.user) {
-          await ensureProfileRow(data.user.id, {
-            fullName: fullNameValue,
-            email: emailValue,
-          });
-        }
-        if (data.session === null && data.user) {
-          setError(
-            'تم إنشاء الحساب بنجاح. يرجى تفعيل البريد الإلكتروني عبر الرابط المرسل إلى بريدك لاستكمال التسجيل.',
-          );
-          return;
-        }
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: emailValue,
+        password: passwordValue,
+      });
+      if (error) throw error;
     } catch (err) {
       setError(translateError(err));
       toastError(translateError(err));
     } finally {
       setLoading(false);
     }
-  };
-
-  const switchMode = (m: Mode) => {
-    setMode(m);
-    setError(null);
   };
 
   return (
@@ -155,37 +104,17 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
             <Store className="w-8 h-8" />
           </div>
           <h1 className="text-[24px] font-bold tracking-[-0.02em] text-[var(--text)]">متجر تراك</h1>
-          <p className="text-[13px] text-[var(--text-secondary)] mt-1.5">
-            {mode === 'login' ? 'تسجيل الدخول إلى لوحة التحكم' : 'إنشاء حساب تاجر جديد'}
-          </p>
+          <p className="text-[13px] text-[var(--text-secondary)] mt-1.5">تسجيل الدخول إلى لوحة التحكم</p>
         </div>
 
         {error && (
-          <div className={`anim-fade mb-5 p-3.5 rounded-[12px] flex items-start gap-2.5 text-[12px] font-medium leading-relaxed ${error.startsWith('تم') ? 'bg-[var(--primary-surface)] border border-[var(--primary)]/25 text-[var(--primary-dark)] dark:text-[var(--accent-text)]' : 'bg-[var(--error-surface)] border border-[var(--error)]/30 text-[var(--error)]'}`}>
+          <div className="anim-fade mb-5 p-3.5 rounded-[12px] flex items-start gap-2.5 text-[12px] font-medium leading-relaxed bg-[var(--error-surface)] border border-[var(--error)]/30 text-[var(--error)]">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
         <div className="space-y-4">
-          {mode === 'signup' && (
-            <div>
-              <label htmlFor={nameId} className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5 ps-0.5">الاسم الكامل</label>
-              <div className="group relative">
-                <User className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)] transition-colors group-focus-within:text-[var(--primary)]" aria-hidden="true" />
-                <input
-                  id={nameId}
-                  ref={fullNameRef}
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="اسمك الكامل"
-                  autoComplete="name"
-                  className="w-full field pe-4 ps-10 py-2.5 rounded-[12px] text-[13px]"
-                />
-              </div>
-            </div>
-          )}
-
           <div>
             <label htmlFor={emailId} className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5 ps-0.5">البريد الإلكتروني</label>
             <div className="group relative">
@@ -199,7 +128,7 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
                 onKeyDown={submitOnEnter}
                 placeholder="name@example.com"
                 dir="ltr"
-                autoComplete={mode === 'login' ? 'username' : 'email'}
+                autoComplete="username"
                 className="w-full field pe-4 ps-10 py-2.5 rounded-[12px] text-[13px] text-left"
               />
             </div>
@@ -218,7 +147,7 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
                 onKeyDown={submitOnEnter}
                 placeholder="••••••••"
                 dir="ltr"
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                autoComplete="current-password"
                 className="w-full field pe-10 ps-10 py-2.5 rounded-[12px] text-[13px] text-left"
               />
               <button
@@ -233,61 +162,14 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
             </div>
           </div>
 
-          {mode === 'signup' && (
-            <div>
-              <label htmlFor={confirmId} className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5 ps-0.5">تأكيد كلمة المرور</label>
-              <div className="group relative">
-                <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)] transition-colors group-focus-within:text-[var(--primary)]" aria-hidden="true" />
-                <input
-                  id={confirmId}
-                  ref={confirmRef}
-                  type={showConfirm ? 'text' : 'password'}
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  onKeyDown={submitOnEnter}
-                  placeholder="••••••••"
-                  dir="ltr"
-                  autoComplete="new-password"
-                  className="w-full field pe-10 ps-10 py-2.5 rounded-[12px] text-[13px] text-left"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(!showConfirm)}
-                  aria-label={showConfirm ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                  aria-pressed={showConfirm}
-                  className="absolute end-2.5 top-1/2 -translate-y-1/2 grid place-items-center w-7 h-7 rounded-full text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-variant)] active:scale-90 transition-[background-color,color,transform]"
-                >
-                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {mode === 'login' && (
-            <div className="text-end">
-              <button
-                onClick={() => setShowForgot(true)}
-                className="text-[12px] font-semibold text-[var(--primary)] hover:text-[var(--primary-dark)] dark:hover:text-[var(--brand-700)] transition-colors"
-              >
-                نسيت كلمة المرور؟
-              </button>
-            </div>
-          )}
-
-          {mode === 'signup' && (
-            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="w-4.5 h-4.5 mt-0.5 rounded-md accent-[var(--primary)] cursor-pointer"
-              />
-              <span className="text-[12px] text-[var(--text-secondary)] leading-relaxed">
-                أوافق على{' '}
-                <span className="text-[var(--primary)] font-semibold">شروط الاستخدام</span> وخدمات متجر تراك
-              </span>
-            </label>
-          )}
+          <div className="text-end">
+            <button
+              onClick={() => setShowForgot(true)}
+              className="text-[12px] font-semibold text-[var(--primary)] hover:text-[var(--primary-dark)] dark:hover:text-[var(--brand-700)] transition-colors"
+            >
+              نسيت كلمة المرور؟
+            </button>
+          </div>
 
           <button
             onClick={handleSubmit}
@@ -296,22 +178,35 @@ export default function AuthPage({ initialMode = 'login' }: { initialMode?: Mode
           >
             {loading ? (
               <span className="inline-block w-4 h-4 border-2 border-[var(--on-primary)]/40 border-t-[var(--on-primary)] rounded-full animate-spin" />
-            ) : mode === 'login' ? (
-              'تسجيل الدخول'
             ) : (
-              'إنشاء الحساب'
+              'تسجيل الدخول'
             )}
           </button>
         </div>
 
-        {mode === 'signup' && (
-          <div className="mt-6 text-center text-[12px] text-[var(--text-muted)]">
-            <span>لديك حساب بالفعل؟</span>{' '}
-            <button onClick={() => switchMode('login')} className="text-[var(--primary)] font-semibold hover:underline">
-              تسجيل الدخول
-            </button>
-          </div>
-        )}
+        <p className="mt-5 text-center text-[11px] text-[var(--text-muted)] leading-relaxed">
+          إنشاء الحسابات يتم من قِبل الإدارة فقط. لطلب حساب جديد تواصل مع مدير النظام.
+        </p>
+
+        <div className="mt-4 text-center text-[11px] text-[var(--text-muted)] flex items-center justify-center gap-3">
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[var(--primary)] hover:underline underline-offset-2 transition-colors"
+          >
+            شروط الاستخدام
+          </a>
+          <span aria-hidden="true">•</span>
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[var(--primary)] hover:underline underline-offset-2 transition-colors"
+          >
+            سياسة الخصوصية
+          </a>
+        </div>
 
         {showForgot && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">

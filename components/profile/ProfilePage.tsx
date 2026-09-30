@@ -16,7 +16,7 @@ import { TextField } from '@/components/ui/fields';
 import { useTheme } from '@/components/ThemeProvider';
 import { useInstall, isStandalone } from '@/components/pwa/useInstall';
 import NotificationPrefsCard from '@/components/notifications/NotificationPrefsCard';
-import { LogOut, Pencil, Shield, Store, Package, User as UserIcon, Download, Smartphone, HardDriveDownload } from 'lucide-react';
+import { LogOut, Pencil, Shield, ShieldCheck, FileText, Store, Package, User as UserIcon, Download, Smartphone, HardDriveDownload } from 'lucide-react';
 
 function subscribeDisplayMode(onChange: () => void): () => void {
   const mq = window.matchMedia('(display-mode: standalone)');
@@ -184,6 +184,36 @@ export default function ProfilePage() {
           <p className="text-[11px] text-[var(--text-secondary)]">تفعيل الألوان الداكنة</p>
         </div>
         <Toggle checked={theme.theme === 'dark'} onChange={() => theme.toggle()} />
+      </div>
+
+      <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">السياسات</h3>
+      <div className="grid grid-cols-1 gap-2.5 mb-6">
+        <a
+          href="/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="card p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors"
+        >
+          <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center"><FileText className="w-4 h-4" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-bold text-[var(--text)]">شروط الاستخدام</span>
+            <span className="block text-[11px] text-[var(--text-secondary)]">الأحكام المنظّمة لاستخدام المنصة</span>
+          </span>
+          <span aria-hidden="true" className="text-[var(--text-muted)]">↗</span>
+        </a>
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="card p-3.5 flex items-center gap-3 hover:border-[var(--border-light)] transition-colors"
+        >
+          <span className="w-9 h-9 rounded-xl bg-[var(--primary-surface-light)] text-[var(--primary)] grid place-items-center"><ShieldCheck className="w-4 h-4" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-bold text-[var(--text)]">سياسة الخصوصية</span>
+            <span className="block text-[11px] text-[var(--text-secondary)]">كيف نتعامل مع بياناتك ونحميها</span>
+          </span>
+          <span aria-hidden="true" className="text-[var(--text-muted)]">↗</span>
+        </a>
       </div>
 
       {!standalone && (
