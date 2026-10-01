@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import { useProfile } from '@/components/ProfileContext';
-import { fetchStores, canEditStore, countAllStores } from '@/lib/data/stores';
+import { fetchStores, countAllStores } from '@/lib/data/stores';
+import { canCreate } from '@/lib/permissions';
 import type { Store } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
 import { cacheKey, cachedLoad } from '@/lib/cache';
@@ -104,7 +105,29 @@ export default function StoresList() {
 
   const goToPage = (pg: number) => setPage(pg);
 
-  const canAdd = canEditStore(profile);
+  // الإنشاء متاح للمدير والموظف دائماً — لا يتطلب صلاحية التعديل (كما في تطبيق الموبايل)
+  const canAdd = canCreate(profile);
+
+  // التاجر يملك متجراً واحداً فقط (كما في تطبيق الموبايل): زر الإضافة يختفي
+  // فور امتلاكه متجره، ليعرض زر "إضافة فرع" في صفحة المتجر بدلاً منه.
+  const [ownStoreCount, setOwnStoreCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isMerchant) return;
+    let cancelled = false;
+    countAllStores({ createdBy: profile.id })
+      .then((c) => {
+        if (!cancelled) setOwnStoreCount(c);
+      })
+      .catch(() => {
+        if (!cancelled) setOwnStoreCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isMerchant, profile.id]);
+  // التاجر: الإضافة متاحة فقط قبل امتلاك متجره الأول (بغضّ النظر عن صلاحياته)،
+  // والموظف/المدير: متاح دائماً عبر canAdd.
+  const canAddStore = isMerchant ? ownStoreCount === 0 : canAdd;
 
   return (
     <div>
@@ -116,7 +139,7 @@ export default function StoresList() {
             {totalCount !== null && <Chip tone="primary" label={`العدد الكلي: ${totalCount}`} />}
           </p>
         </div>
-        {canAdd && (
+        {canAddStore && (
           <Button onClick={() => router.push({ name: 'store-form' })} icon={<Plus className="w-4 h-4" />}>
             إضافة متجر
           </Button>
@@ -138,8 +161,8 @@ export default function StoresList() {
         <EmptyState
           icon={<StoreIcon className="w-6 h-6" />}
           title={search ? 'لا توجد نتائج مطابقة' : 'لا توجد متاجر بعد'}
-          subtitle={search ? 'جرّب كلمات بحث مختلفة' : canAdd ? 'ابدأ بإضافة متجرك الأول' : 'لا توجد متاجر متاحة'}
-          action={canAdd && !search ? <Button onClick={() => router.push({ name: 'store-form' })} icon={<Plus className="w-4 h-4" />}>إضافة متجر</Button> : undefined}
+          subtitle={search ? 'جرّب كلمات بحث مختلفة' : canAddStore ? 'ابدأ بإضافة متجرك الأول' : 'لا توجد متاجر متاحة'}
+          action={canAddStore && !search ? <Button onClick={() => router.push({ name: 'store-form' })} icon={<Plus className="w-4 h-4" />}>إضافة متجر</Button> : undefined}
         />
       ) : (
         <>

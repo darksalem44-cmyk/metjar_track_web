@@ -1,16 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchAllAccounts, adminResetPassword, updateAccountDetails, promoteEmployeeToManager } from '@/lib/data/accounts';
+import { fetchAllAccounts, updateAccountDetails, promoteEmployeeToManager } from '@/lib/data/accounts';
 import type { ActorWithProfile } from '@/lib/types';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import { userValidator } from '@/lib/utils';
-import { KeyRound, UserRound, Store as StoreIcon, Eye, EyeOff, Pencil, ShieldCheck, ShieldOff } from 'lucide-react';
+import { KeyRound, UserRound, Store as StoreIcon, Pencil, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Avatar, Button, CenteredSpinner, Chip, EmptyState, StatCard, Toggle } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
-import { ConfirmDialog, Modal } from '@/components/ui/modals';
+import { Modal } from '@/components/ui/modals';
+import PasswordResetDialog from './PasswordResetDialog';
 
 type RoleFilter = 'all' | 'employee' | 'merchant';
 type StatusFilter = 'all' | 'active' | 'disabled';
@@ -23,15 +24,8 @@ export default function AdminAccountsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const aliveRef = useRef(true);
 
-  // تدفق إعادة تعيين كلمة المرور: نموذج بحقلين (مثل تطبيق الموبايل)
+  // تدفق إعادة تعيين كلمة المرور — النافذة مشتركة مع صفحتي الموظفين والتجار
   const [target, setTarget] = useState<ActorWithProfile | null>(null);
-  const [newPw, setNewPw] = useState('');
-  const [newPwConfirm, setNewPwConfirm] = useState('');
-  const [showPw, setShowPw] = useState(false);
-  const [showPwConfirm, setShowPwConfirm] = useState(false);
-  const [pwError, setPwError] = useState<string | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [resetting, setResetting] = useState(false);
 
   // تدفق تعديل معلومات المستخدم: الاسم والبريد وحالة التفعيل
   const [editTarget, setEditTarget] = useState<ActorWithProfile | null>(null);
@@ -112,49 +106,10 @@ export default function AdminAccountsPage() {
 
   const openReset = (acc: ActorWithProfile) => {
     setTarget(acc);
-    setNewPw('');
-    setNewPwConfirm('');
-    setShowPw(false);
-    setShowPwConfirm(false);
-    setPwError(null);
-    setConfirmOpen(false);
   };
 
   const closeReset = () => {
     setTarget(null);
-    setConfirmOpen(false);
-  };
-
-  const validatePw = (): string | null => {
-    if (newPw.length < 8) return 'كلمة المرور يجب أن تكون 8 محارف على الأقل';
-    if (newPw.length > 128) return 'كلمة المرور يجب ألا تتجاوز 128 محرفاً';
-    if (newPw !== newPwConfirm) return 'كلمتا المرور غير متطابقتين';
-    return null;
-  };
-
-  const submitPw = () => {
-    const v = validatePw();
-    if (v) {
-      setPwError(v);
-      return;
-    }
-    setPwError(null);
-    setConfirmOpen(true);
-  };
-
-  const doReset = async () => {
-    if (!target) return;
-    setResetting(true);
-    try {
-      await adminResetPassword(target.id, newPw);
-      toastSuccess('تم تغيير كلمة مرور المستخدم بنجاح');
-      closeReset();
-    } catch (e) {
-      toastError(typeof e === 'string' ? e : 'تعذر إعادة تعيين كلمة المرور');
-      setConfirmOpen(false);
-    } finally {
-      setResetting(false);
-    }
   };
 
   const openEdit = (acc: ActorWithProfile) => {
@@ -321,102 +276,8 @@ export default function AdminAccountsPage() {
         </div>
       )}
 
-      {/* نموذج إعادة تعيين كلمة المرور */}
-      <Modal open={!!target} onClose={closeReset} title="تغيير كلمة المرور">
-        {target && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-[var(--border)]">
-              <Avatar name={target.fullName} size={40} />
-              <div className="min-w-0">
-                <p className="text-[14px] font-bold text-[var(--text)] truncate">{target.fullName}</p>
-                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                  <Chip tone={target.role === 'merchant' ? 'primary' : 'purple'} icon={target.role === 'merchant' ? <StoreIcon className="w-3 h-3" /> : undefined} label={roleLabel(target.role)} />
-                  <Chip tone={target.isActive ? 'success' : 'neutral'} label={target.isActive ? 'نشط' : 'معطّل'} />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[12px] font-semibold text-[var(--text-secondary)] mb-1.5">
-                كلمة المرور الجديدة <span className="text-[var(--error)]">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showPw ? 'text' : 'password'}
-                  value={newPw}
-                  onChange={(e) => {
-                    setNewPw(e.target.value);
-                    setPwError(null);
-                  }}
-                  placeholder="8 محارف على الأقل"
-                  dir="ltr"
-                  autoFocus
-                  className="w-full pe-10 ps-3.5 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(!showPw)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)]"
-                >
-                  {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[12px] font-semibold text-[var(--text-secondary)] mb-1.5">
-                تأكيد كلمة المرور <span className="text-[var(--error)]">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showPwConfirm ? 'text' : 'password'}
-                  value={newPwConfirm}
-                  onChange={(e) => {
-                    setNewPwConfirm(e.target.value);
-                    setPwError(null);
-                  }}
-                  placeholder="أعد كتابة كلمة المرور"
-                  dir="ltr"
-                  className="w-full pe-10 ps-3.5 py-2.5 bg-[var(--input)] border border-[var(--border)] rounded-xl text-[13px] text-left focus:border-[var(--primary)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwConfirm(!showPwConfirm)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)]"
-                >
-                  {showPwConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {pwError && <p className="text-[12px] font-semibold text-[var(--error)]">{pwError}</p>}
-
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <Button variant="ghost" onClick={closeReset} disabled={resetting}>
-                إلغاء
-              </Button>
-              <Button onClick={submitPw} disabled={resetting || !newPw || !newPwConfirm}>
-                تغيير كلمة المرور
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <ConfirmDialog
-        open={confirmOpen}
-        title="تغيير كلمة المرور"
-        confirmText="تأكيد"
-        loading={resetting}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={doReset}
-      >
-        <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
-          هل أنت متأكد من تغيير كلمة مرور «{target?.fullName}»؟
-          <br />
-          بعد التأكيد ستصبح كلمة المرور الجديدة فعالة مباشرة.
-        </p>
-      </ConfirmDialog>
+      {/* نموذج إعادة تعيين كلمة المرور — مشترك مع صفحتي الموظفين والتجار */}
+      <PasswordResetDialog target={target} onClose={closeReset} />
 
       {/* نافذة تعديل بيانات المستخدم */}
       <Modal open={!!editTarget} onClose={closeEdit} title="تعديل بيانات المستخدم">

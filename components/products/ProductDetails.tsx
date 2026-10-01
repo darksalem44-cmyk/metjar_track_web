@@ -36,6 +36,13 @@ export default function ProductDetails({ productId }: { productId: string }) {
       }
       setProduct(p);
       const [store, names] = await Promise.all([fetchStoreById(p.storeId), getCreatorNames([p.createdBy])]);
+      // متجر المنتج محذوف ناعماً: المنتج معزول عن القوائم والعدّ — نمنع فتحه
+      // مباشرة أيضاً ليتطابق السلوك مع تطبيق الموبايل.
+      if (!store) {
+        toastError('متجر هذا المنتج محذوف');
+        router.pop();
+        return;
+      }
       setStoreName(store?.name ?? '');
       setCreatorName(names[p.createdBy] ?? '');
       setLoading(false);

@@ -13,12 +13,13 @@ import type { ActorWithProfile, AccountFilter } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { Plus, User as UserIcon, ShieldCheck, Power, Shield } from 'lucide-react';
+import { Plus, User as UserIcon, ShieldCheck, Power, Shield, KeyRound } from 'lucide-react';
 import { Avatar, Button, CenteredSpinner, Chip, EmptyState, PaginationFooter, StatCard, Toggle } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
 import { ConfirmDialog, Modal } from '@/components/ui/modals';
 import { PermissionRow } from '@/components/ui/accountUtils';
 import AddAccountDialog from './AddAccountDialog';
+import PasswordResetDialog from './PasswordResetDialog';
 
 export default function AccountListPage({ role }: { role: 'employee' | 'merchant' }) {
   const router = useRouter();
@@ -32,6 +33,8 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
   const queryRef = useRef('');
   const [addOpen, setAddOpen] = useState(false);
   const [target, setTarget] = useState<ActorWithProfile | null>(null);
+  // تدفق إعادة تعيين كلمة المرور — نفس النافذة المستخدمة في صفحة حسابات الفريق
+  const [pwTarget, setPwTarget] = useState<ActorWithProfile | null>(null);
   const [permTarget, setPermTarget] = useState<ActorWithProfile | null>(null);
   const [permEdit, setPermEdit] = useState(false);
   const [permDelete, setPermDelete] = useState(false);
@@ -221,6 +224,9 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
                     <Button variant="surface" size="sm" onClick={() => openPermissions(acc)} icon={<ShieldCheck className="w-3.5 h-3.5" />}>
                       الصلاحيات
                     </Button>
+                    <Button variant="surface" size="sm" onClick={() => setPwTarget(acc)} icon={<KeyRound className="w-3.5 h-3.5" />}>
+                      كلمة المرور
+                    </Button>
                     {busyId === acc.id ? (
                       <span className="w-8 h-8 grid place-items-center"><span className="w-4 h-4 border-2 border-[var(--border-light)] border-t-[var(--primary)] rounded-full animate-spin" /></span>
                     ) : (
@@ -243,6 +249,8 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
       )}
 
       <AddAccountDialog open={addOpen} onClose={() => setAddOpen(false)} role={role} onCreated={() => { loadStats(); load(queryRef.current, 0, filter); }} />
+
+      <PasswordResetDialog target={pwTarget} onClose={() => setPwTarget(null)} />
 
       <ConfirmDialog
         open={!!target}
@@ -274,7 +282,7 @@ export default function AccountListPage({ role }: { role: 'employee' | 'merchant
             </div>
             <PermissionRow
               title="السماح بالتعديل"
-              description="إتاحة إضافة وتعديل المتاجر والفروع والمنتجات"
+              description="إتاحة تعديل المتاجر والفروع والمنتجات (الإضافة متاحة للجميع)"
               checked={permEdit}
               disabled={!permTarget.isActive || permSaving}
               onChange={setPermEdit}

@@ -260,6 +260,7 @@ export const errorMessages: Record<string, string> = {
   USER_NOT_FOUND: 'المستخدم غير موجود',
   INVALID_ROLE: 'الحساب ليس موظفاً أو تاجراً',
   ACCOUNT_DISABLED: 'هذا الحساب معطّل ولا يمكن تعديله',
+  'Cannot reset an inactive account': 'هذا الحساب معطّل. فعّله أولاً من تعديل بيانات المستخدم ثم أعد تعيين كلمة مروره.',
   WEAK_PASSWORD: 'كلمة المرور لا تفي بسياسة المشروع',
   INVALID_PASSWORD: 'كلمة المرور لا تفي بسياسة المشروع',
   PASSWORD_UPDATE_FAILED: 'تعذّر تحديث كلمة المرور',

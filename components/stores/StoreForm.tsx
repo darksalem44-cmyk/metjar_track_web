@@ -7,6 +7,7 @@ import {
   createStore,
   updateStore,
   fetchStoreById,
+  countAllStores,
   canEditStore,
 } from '@/lib/data/stores';
 import { deleteImageObjects, isStoredPath } from '@/lib/supabase';
@@ -52,6 +53,8 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
 
   const [original, setOriginal] = useState<Store | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
+  /** عدد متاجر التاجر الحالية — لفرض قيد "متجر واحد لكل تاجر" كما في الموبايل */
+  const [ownStoreCount, setOwnStoreCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!storeId) return;
@@ -90,6 +93,22 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
     })();
   }, [storeId, router]);
 
+  // التاجر يملك متجراً واحداً فقط: نعرف عدد متاجره قبل السماح بالإنشاء
+  useEffect(() => {
+    if (storeId || profile.role !== 'merchant') return;
+    let cancelled = false;
+    countAllStores({ createdBy: profile.id })
+      .then((c) => {
+        if (!cancelled) setOwnStoreCount(c);
+      })
+      .catch(() => {
+        if (!cancelled) setOwnStoreCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, profile.role, profile.id]);
+
   const validate = () => {
     const e: Record<string, string | null> = {
       name: nameValidator(name),
@@ -101,6 +120,18 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
   };
 
   const submit = async () => {
+    // قيد الموبايل: التاجر يملك متجراً واحداً فقط — فحص أخير قبل الإدخال
+    if (!storeId && profile.role === 'merchant') {
+      try {
+        const owned = await countAllStores({ createdBy: profile.id });
+        if (owned >= 1) {
+          toastError('تملك متجراً واحداً فقط. يمكنك إضافة الفروع والمنتجات من صفحة متجرك.');
+          return;
+        }
+      } catch {
+        // تعذر العدّ — نكمل ويتولّى الخادم الباقي
+      }
+    }
     if (!validate()) {
       toastError('يرجى مراجعة الحقول المحددة');
       return;
@@ -170,7 +201,8 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
 
   if (loading) return <CenteredSpinner label="جاري تحميل بيانات المتجر..." />;
 
-  const editable = canEditStore(profile);
+  // الإنشاء متاح للموظف والمدير دائماً؛ التعديل يتطلب صلاحية can_edit (كما في تطبيق الموبايل)
+  const editable = !storeId || canEditStore(profile);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -181,6 +213,12 @@ export default function StoreForm({ storeId }: { storeId?: string }) {
       />
 
       {!editable && <p className="mb-4 text-[12px] text-[var(--error)]">ليس لديك صلاحية لتعديل المتاجر.</p>}
+
+      {!storeId && profile.role === 'merchant' && ownStoreCount === 0 && (
+        <p className="mb-4 text-[12px] text-[var(--text-secondary)]">
+          بصفتك تاجراً يمكنك امتلاك متجر واحد فقط. بعد إنشائه يمكنك إضافة الفروع والمنتجات من صفحته.
+        </p>
+      )}
 
       <div className="space-y-5">
         <section className="card p-4 space-y-4">

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from '@/components/RouterContext';
 import type { Profile } from '@/lib/types';
 import { roleLabels } from '@/lib/constants';
-import { countAllStores } from '@/lib/data/stores';
+import { countAllStores, fetchStores } from '@/lib/data/stores';
 import { countAllProducts } from '@/lib/data/products';
 import {
   Store,
@@ -31,16 +31,27 @@ export default function HomePage({ profile }: { profile: Profile }) {
 
   // الإجماليات الكلية للمتاجر والمنتجات — تُعرض في صفحة الترحيب للجميع
   const [totals, setTotals] = useState<{ stores: number | null; products: number | null }>({ stores: null, products: null });
+  /** عدد متاجر التاجر ومعرّف متجره — لإخفاء "إضافة متجر" فور امتلاكه متجره الواحد */
+  const [ownStoreCount, setOwnStoreCount] = useState<number | null>(null);
+  const [ownStoreId, setOwnStoreId] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        let ownIds: string[] = [];
         const [s, p] = await Promise.all([
           countAllStores({ createdBy: isMerchant ? profile.id : undefined }),
-          countAllProducts({ storeIds: isMerchant ? await fetchOwnStoreIds(profile.id) : undefined }),
+          (async () => {
+            ownIds = isMerchant ? await fetchOwnStoreIds(profile.id) : [];
+            return countAllProducts({ storeIds: isMerchant ? ownIds : undefined });
+          })(),
         ]);
         if (cancelled) return;
         setTotals({ stores: s, products: p });
+        if (isMerchant) {
+          setOwnStoreCount(s);
+          setOwnStoreId(ownIds[0] ?? null);
+        }
       } catch {
         if (!cancelled) setTotals({ stores: null, products: null });
       }
@@ -131,19 +142,22 @@ export default function HomePage({ profile }: { profile: Profile }) {
             subtitle="عرض وإدارة المتاجر"
             onClick={() => router.push({ name: 'stores-list' })}
           />
-          {profile.canEdit || profile.role === 'merchant' ? (
+          {/* إنشاء المتاجر متاح للموظف دون صلاحية تعديل (كما في الموبايل)،
+              أما التاجر فيُنشئ متجره الواحد فقط ثم تُستبدل البطاقة بإدارة الفروع */}
+          {(!isMerchant || ownStoreCount === 0) && (
             <QuickCard
               icon={<Plus className="w-5 h-5" />}
               title="إضافة متجر"
               subtitle="إنشاء متجر جديد"
               onClick={() => router.push({ name: 'store-form' })}
             />
-          ) : (
+          )}
+          {isMerchant && ownStoreCount !== null && ownStoreCount > 0 && ownStoreId && (
             <QuickCard
-              icon={<Info className="w-5 h-5" />}
-              title="شرح الاستخدام"
-              subtitle="كيفية استخدام التطبيق"
-              onClick={() => setShowTutorial(true)}
+              icon={<Building2 className="w-5 h-5" />}
+              title="إضافة فرع"
+              subtitle="إضافة فرع لمتجرك"
+              onClick={() => router.push({ name: 'branches', storeId: ownStoreId })}
             />
           )}
         </div>

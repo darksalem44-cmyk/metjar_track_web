@@ -270,9 +270,9 @@ export default function ProfilePage() {
 
       <h3 className="text-[13px] font-bold text-[var(--text)] mb-2">تغيير كلمة المرور</h3>
       <div className="card p-4 space-y-3 mb-6">
-        <TextField label="كلمة المرور الحالية" type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" />
-        <TextField label="كلمة المرور الجديدة" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="8 محارف على الأقل" />
-        <TextField label="تأكيد كلمة المرور" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" error={pwError} />
+        <TextField label="كلمة المرور الحالية" type="password" autoComplete="current-password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" />
+        <TextField label="كلمة المرور الجديدة" type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="8 محارف على الأقل" />
+        <TextField label="تأكيد كلمة المرور" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" error={pwError} />
         <div className="flex justify-end">
           <Button onClick={submitPassword} loading={savingPw}>تغيير كلمة المرور</Button>
         </div>

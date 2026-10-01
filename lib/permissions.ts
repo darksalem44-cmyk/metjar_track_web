@@ -16,7 +16,12 @@ export function canAccessView(profile: Profile, view: View): boolean {
   return profile.role === 'manager' || !MANAGER_ONLY_VIEWS.includes(view.name);
 }
 
-/** صلاحية الإضافة والتعديل: المدير يملكها دائماً، وغيره بحسب علم can_edit. */
+/** الإضافة متاحة دائماً: المدير والموظف يمكنهم إنشاء متاجر ومنتجات، والتاجر يمتلك متجره الخاص فقط. */
+export function canCreate(profile: Profile): boolean {
+  return profile.role !== 'merchant';
+}
+
+/** صلاحية التعديل: المدير يملكها دائماً، وغيره بحسب علم can_edit. */
 export function canEdit(profile: Profile): boolean {
   return profile.role === 'manager' || profile.canEdit;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createEmployeeAccount, createMerchantAccount } from '@/lib/data/accounts';
+import { createEmployeeAccount, createMerchantAccount, updateAccountPermissions } from '@/lib/data/accounts';
 import { generatePassword } from '@/lib/utils';
 import { toastError } from '@/lib/toast';
 import { Modal } from '@/components/ui/modals';
@@ -49,7 +49,14 @@ export default function AddAccountDialog({
     setSaving(true);
     try {
       if (role === 'merchant') {
-        await createMerchantAccount({ email, password, fullName: name });
+        const { merchant } = await createMerchantAccount({ email, password, fullName: name });
+        // الافتراض في الموبايل: التاجر يُنشأ بصلاحية تعديل مفعّلة تلقائياً
+        // وصلاحية حذف تمنحها الإدارة لاحقاً عند الحاجة.
+        try {
+          await updateAccountPermissions(merchant.id, true, false);
+        } catch {
+          // إن فشل فرض الافتراضي نكمل — يمكن للمدير تعديل الصلاحيات من القائمة
+        }
       } else {
         await createEmployeeAccount({ email, password, fullName: name });
       }

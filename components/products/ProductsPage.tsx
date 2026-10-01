@@ -5,7 +5,6 @@ import { useRouter } from '@/components/RouterContext';
 import { useProfile } from '@/components/ProfileContext';
 import { fetchAllProducts, countAllProducts } from '@/lib/data/products';
 import { fetchStores, fetchStoreById } from '@/lib/data/stores';
-import { canEdit } from '@/lib/permissions';
 import { fetchBranchById } from '@/lib/data/branches';
 import type { Product, Store } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
@@ -55,7 +54,9 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
   }, []);
 
   const isMerchant = profile.role === 'merchant';
-  const canAdd = canEdit(profile);
+  // إضافة المنتجات متاحة لكل الأدوار (كما في الموبايل): الموظف والمدير لأي متجر،
+  // والتاجر لمتاجره فقط عبر منتقي المتاجر المقيّد بمتاجره.
+  const canAdd = true;
 
   const ensureStores = useCallback(async (): Promise<Store[]> => {
     if (storesCacheRef.current) return storesCacheRef.current;
@@ -97,9 +98,11 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
     async (pg: number, q: string, append: boolean) => {
       if (append) setLoadingMore(true);
       else setLoading(true);
+      // ':live:1' يميّز مفاتيح ما بعد فلترة المتاجر المحذوفة ناعماً — فيُبطل
+      // أي كاش قديم كان قد يحوي منتجات متاجر محذوفة.
       const pageKey = cacheKey(
         'products',
-        `page${pg}:q:${q}:scope:${scope.type}:${scope.storeId ?? ''}:${scope.branchId ?? ''}:sf:${storeFilterId}:u:${isMerchant ? profile.id : 'all'}`,
+        `page${pg}:q:${q}:scope:${scope.type}:${scope.storeId ?? ''}:${scope.branchId ?? ''}:sf:${storeFilterId}:u:${isMerchant ? profile.id : 'all'}:live:1`,
       );
       try {
         await cachedLoad(
@@ -214,6 +217,12 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
       await ensureStores();
     } catch {
       setFilterStores([]);
+    }
+    // التاجر بلا متاجر: لا معنى لفتح المنتقي — أنشئ متجرك أولاً (كما في الموبايل)
+    if (isMerchant && filterStores.length === 0) {
+      toastError('يجب إنشاء متجرك أولاً قبل إضافة منتجات');
+      router.push({ name: 'stores-list' });
+      return;
     }
     setStorePickerOpen(true);
   };

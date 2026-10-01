@@ -215,11 +215,9 @@ export default function BranchDetails({ storeId, branchId }: { storeId: string; 
             <Chip tone="neutral" label={products.length} />
           </span>
           <div className="flex items-center gap-2">
-            {editable && (
-              <Button variant="secondary" size="sm" onClick={() => setShowQuickAdd(true)} icon={<Plus className="w-4 h-4" />}>
-                إضافة سريعة
-              </Button>
-            )}
+            <Button variant="secondary" size="sm" onClick={() => setShowQuickAdd(true)} icon={<Plus className="w-4 h-4" />}>
+              إضافة سريعة
+            </Button>
             <Button variant="surface" size="sm" onClick={() => router.push({ name: 'products', scope: { type: 'branch', storeId, branchId } })}>
               عرض الكل
             </Button>

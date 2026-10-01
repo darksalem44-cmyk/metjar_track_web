@@ -330,11 +330,9 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
             <Chip tone="neutral" label={productCount} />
           </span>
           <div className="flex items-center gap-2">
-            {editable && (
-              <Button variant="secondary" size="sm" onClick={() => setShowQuickAdd(true)} icon={<Plus className="w-4 h-4" />}>
-                إضافة سريعة
-              </Button>
-            )}
+            <Button variant="secondary" size="sm" onClick={() => setShowQuickAdd(true)} icon={<Plus className="w-4 h-4" />}>
+              إضافة سريعة
+            </Button>
             <Button variant="surface" size="sm" onClick={() => router.push({ name: 'products', scope: { type: 'store', storeId: store.id } })}>
               عرض الكل
             </Button>
@@ -345,7 +343,7 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
             icon={<Package className="w-6 h-6" />}
             title="لا توجد منتجات"
             subtitle="أضف منتجاتك لتظهر هنا"
-            action={editable && <Button size="sm" onClick={() => setShowQuickAdd(true)} icon={<Plus className="w-4 h-4" />}>إضافة منتج</Button>}
+            action={<Button size="sm" onClick={() => setShowQuickAdd(true)} icon={<Plus className="w-4 h-4" />}>إضافة منتج</Button>}
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">

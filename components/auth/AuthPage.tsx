@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getProfile } from '@/lib/data/profiles';
 import { Store, Lock, Mail, Eye, EyeOff, AlertCircle, BarChart3, Bell } from 'lucide-react';
 import { translateError } from '@/lib/constants';
 import { toastError } from '@/lib/toast';
@@ -50,11 +51,22 @@ export default function AuthPage() {
     setLoading(true);
     setError(null);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: emailValue,
         password: passwordValue,
       });
       if (error) throw error;
+      // المدير قد يكون عطّل الحساب: Supabase لا يعرف is_active، لذا نفحص البروفايل
+      // فور نجاح الدخول (بمعرف المستخدم من الجلسة) ونخرج فوراً مع إظهار رسالة واضحة
+      // بدل الدخول الصامت.
+      const profile = data.user ? await getProfile(data.user.id) : null;
+      if (profile && !profile.isActive) {
+        await supabase.auth.signOut();
+        const msg = 'تم تعطيل حسابك من قبل المدير. يرجى التواصل مع الإدارة لإعادة تفعيله.';
+        setError(msg);
+        toastError(msg);
+        return;
+      }
     } catch (err) {
       setError(translateError(err));
       toastError(translateError(err));
@@ -184,9 +196,7 @@ export default function AuthPage() {
           </button>
         </div>
 
-        <p className="mt-5 text-center text-[11px] text-[var(--text-muted)] leading-relaxed">
-          إنشاء الحسابات يتم من قِبل الإدارة فقط. لطلب حساب جديد تواصل مع مدير النظام.
-        </p>
+        
 
         <div className="mt-4 text-center text-[11px] text-[var(--text-muted)] flex items-center justify-center gap-3">
           <a

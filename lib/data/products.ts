@@ -36,12 +36,21 @@ export interface ProductListParams extends PageParams {
   branchId?: string;
 }
 
+/**
+ * ربط داخلي مع جدول المتاجر: يفلتر المنتجات التابعة لمتاجر محذوفة ناعماً
+ * (deleted_at != null) فيبقى القوائم والعدّ متطابقين مع تطبيق الموبايل —
+ * الذي يقرأ منتجات كل متجر عبر سجل المتجر الحي فقط.
+ */
+const LIVE_STORE_EMBED = 'stores!inner(id)';
+
 export async function fetchAllProducts(params: ProductListParams): Promise<PageResult<Product>> {
   const { page, pageSize, search, storeIds, storeId, branchId } = params;
-  // ملاحظة: جدول products لا يحتوي deleted_at (الحذف نهائي مباشرة)
+  // ملاحظة: جدول products لا يحتوي deleted_at (الحذف نهائي مباشرة)،
+  // لكن حذف المتجر ناعم، لذا نستثني منتجات المتاجر المحذوفة عبر الربط أعلاه.
   let query = supabase
     .from('products')
-    .select(PRODUCT_SELECT)
+    .select(`${PRODUCT_SELECT}, ${LIVE_STORE_EMBED}`)
+    .is('stores.deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (search?.trim()) {
@@ -64,10 +73,12 @@ export async function fetchAllProducts(params: ProductListParams): Promise<PageR
 }
 
 export async function fetchProductsByStore(storeId: string, limit = 100): Promise<Product[]> {
+  // أمان إضافي: لو حُذف المتجر ناعماً لا تُعاد منتجاته حتى من شاشة قديمة
   const { data, error } = await supabase
     .from('products')
-    .select(PRODUCT_SELECT)
+    .select(`${PRODUCT_SELECT}, ${LIVE_STORE_EMBED}`)
     .eq('store_id', storeId)
+    .is('stores.deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw translateError(error);
@@ -94,8 +105,9 @@ export async function fetchProductById(id: string): Promise<Product | null> {
 export async function countProductsByStore(storeId: string): Promise<number> {
   const { count, error } = await supabase
     .from('products')
-    .select('id', { count: 'exact', head: true })
-    .eq('store_id', storeId);
+    .select(`${LIVE_STORE_EMBED}`, { count: 'exact', head: true })
+    .eq('store_id', storeId)
+    .is('stores.deleted_at', null);
   if (error) return 0;
   return count ?? 0;
 }
@@ -118,7 +130,11 @@ export async function countAllProducts(filter?: {
   const cached = cacheGet<{ at: number; value: number }>(key);
   const now = Date.now();
   if (cached && now - cached.at < COUNT_TTL_MS) return cached.value;
-  let query = supabase.from('products').select('id', { count: 'exact', head: true });
+  // الربط الداخلي يستثني منتجات المتاجر المحذوفة ناعماً من العدّ أيضاً
+  let query = supabase
+    .from('products')
+    .select(LIVE_STORE_EMBED, { count: 'exact', head: true })
+    .is('stores.deleted_at', null);
   if (search.trim()) query = query.ilike('name', `%${search.trim()}%`);
   if (storeId.trim()) query = query.eq('store_id', storeId);
   if (branchId.trim()) query = query.eq('branch_id', branchId);
