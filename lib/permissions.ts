@@ -10,6 +10,7 @@ const MANAGER_ONLY_VIEWS: View['name'][] = [
   'alerts',
   'alerts-archive',
   'backup',
+  'store-product-stats',
 ];
 
 export function canAccessView(profile: Profile, view: View): boolean {

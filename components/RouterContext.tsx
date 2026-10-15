@@ -27,6 +27,7 @@ export type View =
   | { name: 'alerts-archive' }
   | { name: 'activity-trends' }
   | { name: 'backup' }
+  | { name: 'store-product-stats' }
   | { name: 'profile' };
 
 export interface RouterContextValue {
@@ -105,6 +106,8 @@ export function viewToPath(view: View): string {
       return '/activities/trends';
     case 'backup':
       return '/backup';
+    case 'store-product-stats':
+      return '/store-product-stats';
     case 'profile':
       return '/profile';
     default:
@@ -152,6 +155,7 @@ export function pathToView(pathname: string, search: string): View | null {
   if (s[0] === 'accounts' && s.length === 1) return { name: 'accounts' };
   if (s[0] === 'profile' && s.length === 1) return { name: 'profile' };
   if (s[0] === 'backup' && s.length === 1) return { name: 'backup' };
+  if (s[0] === 'store-product-stats' && s.length === 1) return { name: 'store-product-stats' };
   if (s[0] === 'alerts') {
     if (s.length === 1) return { name: 'alerts' };
     if (s.length === 2 && s[1] === 'archive') return { name: 'alerts-archive' };
