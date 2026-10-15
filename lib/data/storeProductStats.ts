@@ -59,3 +59,38 @@ export async function fetchStoreProductStats(): Promise<StoreProductStats[]> {
   }
   return [...stats.values()];
 }
+
+/** يحوّل تاريخ حقل الإدخال (YYYY-MM-DD) إلى بداية أو نهاية ذلك اليوم بالتوقيت المحلي بصيغة ISO. */
+function dayBoundary(day: string, end: boolean): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return (end ? new Date(y, m - 1, d, 23, 59, 59, 999) : new Date(y, m - 1, d)).toISOString();
+}
+
+/** شرط PostgREST لعمود زمني ضمن المدى (الطرفان اختياريان). */
+function rangeCondition(column: string, from?: string, to?: string): string {
+  const parts = [
+    from ? `${column}.gte."${dayBoundary(from, false)}"` : '',
+    to ? `${column}.lte."${dayBoundary(to, true)}"` : '',
+  ].filter(Boolean);
+  return parts.length === 1 ? parts[0] : `and(${parts.join(',')})`;
+}
+
+/**
+ * معرّفات المتاجر التي أُضيف أو عُدّل فيها منتج واحد على الأقل ضمن المدى الزمني
+ * (from/to بصيغة YYYY-MM-DD، ويكفي أحدهما).
+ */
+export async function fetchStoreIdsWithProductActivity(range: { from?: string; to?: string }): Promise<Set<string>> {
+  const { from, to } = range;
+  if (!from && !to) return new Set();
+  const condition = `${rangeCondition('created_at', from, to)},${rangeCondition('updated_at', from, to)}`;
+  const rows = await fetchAllRows((start, end) =>
+    supabase
+      .from('products')
+      .select('store_id, stores!inner(id)')
+      .is('stores.deleted_at', null)
+      .or(condition)
+      .order('id')
+      .range(start, end),
+  );
+  return new Set(rows.map((r) => r.store_id as string));
+}

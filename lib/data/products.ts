@@ -34,7 +34,12 @@ export interface ProductListParams extends PageParams {
   storeIds?: string[];
   storeId?: string;
   branchId?: string;
+  /** المنتجات غير المسعّرة فقط (السعر 0 أو فارغ). */
+  unpricedOnly?: boolean;
 }
+
+/** شرط المنتجات غير المسعّرة: السعر فارغ أو لا يزيد عن 0 (مطابق لإحصائية المتاجر). */
+const UNPRICED_FILTER = 'price.is.null,price.lte.0';
 
 /**
  * ربط داخلي مع جدول المتاجر: يفلتر المنتجات التابعة لمتاجر محذوفة ناعماً
@@ -44,7 +49,7 @@ export interface ProductListParams extends PageParams {
 const LIVE_STORE_EMBED = 'stores!inner(id)';
 
 export async function fetchAllProducts(params: ProductListParams): Promise<PageResult<Product>> {
-  const { page, pageSize, search, storeIds, storeId, branchId } = params;
+  const { page, pageSize, search, storeIds, storeId, branchId, unpricedOnly } = params;
   // ملاحظة: جدول products لا يحتوي deleted_at (الحذف نهائي مباشرة)،
   // لكن حذف المتجر ناعم، لذا نستثني منتجات المتاجر المحذوفة عبر الربط أعلاه.
   let query = supabase
@@ -64,6 +69,9 @@ export async function fetchAllProducts(params: ProductListParams): Promise<PageR
   }
   if (storeIds && storeIds.length > 0) {
     query = query.in('store_id', storeIds);
+  }
+  if (unpricedOnly) {
+    query = query.or(UNPRICED_FILTER);
   }
 
   const rangeStart = page * pageSize;
@@ -118,14 +126,16 @@ export async function countAllProducts(filter?: {
   storeIds?: string[];
   storeId?: string;
   branchId?: string;
+  unpricedOnly?: boolean;
 }): Promise<number> {
   const search = filter?.search ?? '';
   const storeIds = filter?.storeIds ?? [];
   const storeId = filter?.storeId ?? '';
   const branchId = filter?.branchId ?? '';
+  const unpricedOnly = !!filter?.unpricedOnly;
   const key = `count:${cacheKey(
     'products',
-    `all:q:${search}:sids:${[...storeIds].sort().join(',')}:sid:${storeId}:bid:${branchId}`,
+    `all:q:${search}:sids:${[...storeIds].sort().join(',')}:sid:${storeId}:bid:${branchId}:np:${unpricedOnly ? 1 : 0}`,
   )}`;
   const cached = cacheGet<{ at: number; value: number }>(key);
   const now = Date.now();
@@ -139,6 +149,7 @@ export async function countAllProducts(filter?: {
   if (storeId.trim()) query = query.eq('store_id', storeId);
   if (branchId.trim()) query = query.eq('branch_id', branchId);
   if (storeIds.length > 0) query = query.in('store_id', storeIds);
+  if (unpricedOnly) query = query.or(UNPRICED_FILTER);
   const { count, error } = await query;
   if (error) return cached?.value ?? 0;
   const value = count ?? 0;

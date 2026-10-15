@@ -129,7 +129,7 @@ function viewIndex(v: View): string {
     case 'branch-details':
       return v.storeId + (v.branchId ?? '');
     case 'products':
-      return v.scope.type + (v.scope.type === 'all' ? '' : v.scope.type === 'store' ? v.scope.storeId : v.scope.storeId + v.scope.branchId);
+      return v.scope.type + (v.scope.type === 'all' ? '' : v.scope.type === 'store' ? v.scope.storeId : v.scope.storeId + v.scope.branchId) + (v.unpriced ? ':np' : '');
     case 'product-form':
       return v.storeId + (v.productId ?? '');
     case 'product-details':
@@ -404,7 +404,7 @@ function ViewRenderer({ profile, view }: { profile: Profile; view: View }) {
     case 'branch-details':
       return <BranchDetails storeId={view.storeId} branchId={view.branchId} />;
     case 'products':
-      return <ProductsPage scope={view.scope} />;
+      return <ProductsPage scope={view.scope} unpriced={!!view.unpriced} />;
     case 'product-form':
       return <ProductForm storeId={view.storeId} productId={view.productId} />;
     case 'product-details':

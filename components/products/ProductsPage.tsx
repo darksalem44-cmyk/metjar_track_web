@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from '@/components/RouterContext';
+import { useRouter, type View } from '@/components/RouterContext';
 import { useProfile } from '@/components/ProfileContext';
 import { fetchAllProducts, countAllProducts } from '@/lib/data/products';
 import { fetchStores, fetchStoreById } from '@/lib/data/stores';
@@ -11,7 +11,7 @@ import { PAGE_SIZE } from '@/lib/data/base';
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import { toastError } from '@/lib/toast';
 import { cn, formatPrice } from '@/lib/utils';
-import { Plus, Package, ChevronRight, ChevronDown, Check, Store as StoreIcon } from 'lucide-react';
+import { Plus, Package, ChevronRight, ChevronDown, Check, Store as StoreIcon, CircleOff, X } from 'lucide-react';
 import { Button, Chip, CenteredSpinner, EmptyState, PageHeader, PaginationFooter } from '@/components/ui/controls';
 import { SearchField } from '@/components/ui/fields';
 import { Modal } from '@/components/ui/modals';
@@ -23,7 +23,7 @@ interface Scope {
   branchId?: string;
 }
 
-export default function ProductsPage({ scope }: { scope: Scope }) {
+export default function ProductsPage({ scope, unpriced = false }: { scope: Scope; unpriced?: boolean }) {
   const router = useRouter();
   const profile = useProfile();
   const [products, setProducts] = useState<Product[]>([]);
@@ -102,7 +102,7 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
       // أي كاش قديم كان قد يحوي منتجات متاجر محذوفة.
       const pageKey = cacheKey(
         'products',
-        `page${pg}:q:${q}:scope:${scope.type}:${scope.storeId ?? ''}:${scope.branchId ?? ''}:sf:${storeFilterId}:u:${isMerchant ? profile.id : 'all'}:live:1`,
+        `page${pg}:q:${q}:scope:${scope.type}:${scope.storeId ?? ''}:${scope.branchId ?? ''}:sf:${storeFilterId}:np:${unpriced ? 1 : 0}:u:${isMerchant ? profile.id : 'all'}:live:1`,
       );
       try {
         await cachedLoad(
@@ -123,6 +123,7 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
               storeIds: storeFilter,
               storeId: storeFilterId || (scope.type === 'store' ? scope.storeId : undefined),
               branchId: scope.type === 'branch' ? scope.branchId : undefined,
+              unpricedOnly: unpriced,
             });
           },
           (res, source) => {
@@ -154,12 +155,14 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
                       storeIds: ownStores.map((s) => s.id),
                       storeId: storeFilterId || undefined,
                       branchId: undefined,
+                      unpricedOnly: unpriced,
                     });
                   }
                   return countAllProducts({
                     search: q,
                     storeId: storeFilterId || (scope.type === 'store' ? scope.storeId : undefined),
                     branchId: scope.type === 'branch' ? scope.branchId : undefined,
+                    unpricedOnly: unpriced,
                   });
                 })
                 .then((count) => {
@@ -183,7 +186,7 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
         }
       }
     },
-    [scope.type, scope.storeId, scope.branchId, isMerchant, profile.id, storeFilterId, ensureStores],
+    [scope.type, scope.storeId, scope.branchId, isMerchant, profile.id, storeFilterId, unpriced, ensureStores],
   );
 
   useEffect(() => {
@@ -251,8 +254,20 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
         }
       />
 
-      <div className="mb-5">
-        <SearchField value={search} onChange={setSearch} placeholder="بحث عن منتج بالاسم..." className="max-w-md" />
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <SearchField value={search} onChange={setSearch} placeholder="بحث عن منتج بالاسم..." className="max-w-md flex-1 min-w-[220px]" />
+        {unpriced && (
+          <button
+            type="button"
+            onClick={() => router.replace({ name: 'products', scope: scope as Extract<View, { name: 'products' }>['scope'] })}
+            aria-label="إلغاء فلتر غير المسعّرة"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--warning)]/35 bg-[var(--warning-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--warning)] hover:border-[var(--warning)]/60 transition-colors"
+          >
+            <CircleOff className="w-3.5 h-3.5" />
+            غير المسعّرة فقط
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {scope.type === 'all' && filterStores.length > 0 && (
@@ -337,8 +352,8 @@ export default function ProductsPage({ scope }: { scope: Scope }) {
       ) : products.length === 0 ? (
         <EmptyState
           icon={<Package className="w-6 h-6" />}
-          title={search ? 'لا توجد نتائج مطابقة' : 'لا توجد منتجات'}
-          subtitle={search ? 'جرّب كلمات بحث مختلفة' : 'أضف منتجاً جديداً'}
+          title={search ? 'لا توجد نتائج مطابقة' : unpriced ? 'كل المنتجات مسعّرة' : 'لا توجد منتجات'}
+          subtitle={search ? 'جرّب كلمات بحث مختلفة' : unpriced ? 'لا توجد منتجات بسعر 0' : 'أضف منتجاً جديداً'}
           action={!search && canAdd && <Button onClick={openAdd} icon={<Plus className="w-4 h-4" />}>إضافة منتج</Button>}
         />
       ) : (

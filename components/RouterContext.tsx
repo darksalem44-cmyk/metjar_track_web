@@ -15,6 +15,8 @@ export type View =
   | {
       name: 'products';
       scope: { type: 'all' } | { type: 'store'; storeId: string } | { type: 'branch'; storeId: string; branchId: string };
+      /** عرض المنتجات غير المسعّرة فقط (السعر 0). */
+      unpriced?: boolean;
     }
   | { name: 'product-form'; storeId: string; productId?: string }
   | { name: 'product-details'; productId: string }
@@ -73,10 +75,12 @@ export function viewToPath(view: View): string {
         : `/stores/${view.storeId}/branches/new`;
     case 'branch-details':
       return `/stores/${view.storeId}/branches/${view.branchId}`;
-    case 'products':
-      if (view.scope.type === 'store') return `/products/store/${view.scope.storeId}`;
-      if (view.scope.type === 'branch') return `/products/branch/${view.scope.storeId}/${view.scope.branchId}`;
-      return '/products';
+    case 'products': {
+      const suffix = view.unpriced ? '?price=0' : '';
+      if (view.scope.type === 'store') return `/products/store/${view.scope.storeId}${suffix}`;
+      if (view.scope.type === 'branch') return `/products/branch/${view.scope.storeId}/${view.scope.branchId}${suffix}`;
+      return `/products${suffix}`;
+    }
     case 'product-form':
       return view.productId
         ? `/products/${view.productId}/edit?store=${view.storeId}`
@@ -135,18 +139,19 @@ export function pathToView(pathname: string, search: string): View | null {
   }
 
   if (s[0] === 'products') {
-    if (s.length === 1) return { name: 'products', scope: { type: 'all' } };
+    const unpriced = q.get('price') === '0' ? { unpriced: true } : {};
+    if (s.length === 1) return { name: 'products', scope: { type: 'all' }, ...unpriced };
     if (s.length === 2 && at(1) === 'new') {
       const storeId = q.get('store') ?? '';
       return storeId ? { name: 'product-form', storeId } : null;
     }
     if (s.length === 2) return { name: 'product-details', productId: at(1)! };
-    if (s.length === 3 && at(1) === 'store') return { name: 'products', scope: { type: 'store', storeId: at(2)! } };
+    if (s.length === 3 && at(1) === 'store') return { name: 'products', scope: { type: 'store', storeId: at(2)! }, ...unpriced };
     if (s.length === 3 && at(2) === 'edit') {
       const storeId = q.get('store') ?? '';
       return storeId ? { name: 'product-form', storeId, productId: at(1)! } : null;
     }
-    if (s.length === 4 && at(1) === 'branch') return { name: 'products', scope: { type: 'branch', storeId: at(2)!, branchId: at(3)! } };
+    if (s.length === 4 && at(1) === 'branch') return { name: 'products', scope: { type: 'branch', storeId: at(2)!, branchId: at(3)! }, ...unpriced };
     return null;
   }
 

@@ -9,7 +9,7 @@ import { fetchProductsByStore, countProductsByStore } from '@/lib/data/products'
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import type { Branch, Product } from '@/lib/types';
 import { deleteImageObjects, filterStoredPaths } from '@/lib/supabase';
-import { formatDistanceText, relativeTime, formatPrice } from '@/lib/utils';
+import { formatDistanceText, relativeTime, formatPrice, formatDateTime } from '@/lib/utils';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Chip, Button, CenteredSpinner, EmptyState } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
@@ -33,6 +33,7 @@ import {
   Building2,
   Copy,
   Navigation,
+  CalendarClock,
 } from 'lucide-react';
 
 export default function StoreDetails({ storeId }: { storeId: string }) {
@@ -338,6 +339,15 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
             </Button>
           </div>
         </div>
+        {/* المنتجات مرتبة بالأحدث إضافةً، فالأول هو آخر منتج أُضيف */}
+        {products[0] && (
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--border)] bg-[var(--surface-variant)]/50 text-[12px] text-[var(--text-secondary)]">
+            <CalendarClock className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]" />
+            <span>آخر منتج أُضيف:</span>
+            <span className="font-semibold text-[var(--text)] tnum">{formatDateTime(products[0].createdAt)}</span>
+            <span className="text-[var(--text-muted)]">({relativeTime(products[0].createdAt)})</span>
+          </div>
+        )}
         {products.length === 0 ? (
           <EmptyState
             icon={<Package className="w-6 h-6" />}
