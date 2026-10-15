@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useEffectEvent, useId, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { Button, Spinner } from './controls';
@@ -42,6 +42,9 @@ export function Modal({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // onClose غالباً دالة جديدة في كل رسم عند الأب؛ لو دخلت في اعتماديات المؤثر لأُعيد
+  // تشغيله مع كل حرف يُكتب، فينتقل التركيز إلى زر الفتح ثم أول حقل ويضيع من الحقل الحالي.
+  const requestClose = useEffectEvent(() => onClose());
 
   useEffect(() => {
     if (!open || hidden) return;
@@ -56,7 +59,7 @@ export function Modal({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        requestClose();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -83,7 +86,7 @@ export function Modal({
       unlockBodyScroll();
       opener?.focus?.();
     };
-  }, [open, onClose, hidden]);
+  }, [open, hidden]);
 
   if (!open || hidden) return null;
 
