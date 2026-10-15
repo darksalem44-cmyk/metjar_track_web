@@ -362,13 +362,28 @@ export interface PriceSnapshot {
   eventAt: string;
   price: number;
   currency?: string;
+  /** بصمة السعات الإضافية وأسعارها؛ نص فارغ للمنتج ذي السعة الواحدة أو للقطات الأقدم من الميزة. */
+  options?: string;
 }
 
-function priceOf(details: unknown): { price: number; currency?: string } | null {
+/** بصمة ثابتة للسعات الإضافية: أي تغيير في سعة أو وحدة أو سعر يغيّرها. */
+function optionsSignature(raw: unknown): string {
+  if (!Array.isArray(raw) || raw.length === 0) return '';
+  return raw
+    .map((o) => `${Number(o?.unit_value)}|${String(o?.unit ?? '')}|${Number(o?.price)}`)
+    .sort()
+    .join(';');
+}
+
+function priceOf(details: unknown): { price: number; currency?: string; options: string } | null {
   const row = readEventDetails(details);
   const price = Number(row['price']);
   if (!Number.isFinite(price)) return null;
-  return { price, currency: typeof row['currency'] === 'string' ? row['currency'] : undefined };
+  return {
+    price,
+    currency: typeof row['currency'] === 'string' ? row['currency'] : undefined,
+    options: optionsSignature(row['price_options']),
+  };
 }
 
 function priceText(snapshot: { price: number; currency?: string }): string {
@@ -399,7 +414,7 @@ export function previousPricesByEvent(
     const snapshot = priceOf(row.details);
     if (!snapshot) continue;
     const list = byEntity.get(row.entity_id) ?? [];
-    list.push({ eventAt: row.event_at, price: snapshot.price, currency: snapshot.currency });
+    list.push({ eventAt: row.event_at, price: snapshot.price, currency: snapshot.currency, options: snapshot.options });
     byEntity.set(row.entity_id, list);
   }
   for (const list of byEntity.values()) list.sort((a, b) => a.eventAt.localeCompare(b.eventAt));
@@ -460,7 +475,8 @@ export function buildAlerts(
       row.event_action === 'updated' && row.entity_type === 'product' ? priceOf(row.details) : null;
     const priceChanged =
       !!previous && !!currentPrice && Number.isFinite(currentPrice.price)
-        ? currentPrice.price !== previous.price
+        ? // السعر الأساسي أو سعر أي سعة إضافية تغيّر
+          currentPrice.price !== previous.price || currentPrice.options !== (previous.options ?? '')
         : false;
     const actor = row.actor_id ? actors.get(row.actor_id) : undefined;
 
@@ -481,7 +497,9 @@ export function buildAlerts(
       title: eventPhrase(event),
       detail:
         priceChanged && previous && currentPrice
-          ? `تغيّر السعر من ${priceText(previous)} إلى ${priceText(currentPrice)}`
+          ? currentPrice.price !== previous.price
+            ? `تغيّر السعر من ${priceText(previous)} إلى ${priceText(currentPrice)}`
+            : 'تغيّرت أسعار السعات الإضافية'
           : eventBriefDetail(row.details, row.entity_type),
     };
   });

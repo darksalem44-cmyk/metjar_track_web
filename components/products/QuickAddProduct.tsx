@@ -3,12 +3,15 @@
 import { useState } from 'react';
 import { useProfile } from '@/components/ProfileContext';
 import { createProduct } from '@/lib/data/products';
-import { currencyOptions } from '@/lib/constants';
+import { currencyLabels, currencyOptions } from '@/lib/constants';
 import type { CurrencyCode } from '@/lib/types';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { Modal } from '@/components/ui/modals';
 import { Button, Toggle } from '@/components/ui/controls';
 import { TextField, CategoryAutocomplete } from '@/components/ui/fields';
+import UnitField, { checkUnit } from './UnitField';
+import PriceOptionsField, { isBlankOption, parseDraftNumber, priceOptionsError, type PriceOptionDraft } from './PriceOptionsField';
+import VariantsField from './VariantsField';
 
 export default function QuickAddProduct({
   open,
@@ -27,6 +30,12 @@ export default function QuickAddProduct({
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>('SYP');
+  const [unitValue, setUnitValue] = useState('');
+  const [unit, setUnit] = useState('');
+  const [unitError, setUnitError] = useState<string | null>(null);
+  const [priceOptions, setPriceOptions] = useState<PriceOptionDraft[]>([]);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
+  const [variants, setVariants] = useState<string[]>(['']);
   const [category, setCategory] = useState('');
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -42,6 +51,16 @@ export default function QuickAddProduct({
       setError('سعر المنتج غير صحيح');
       return;
     }
+    const unitCheck = checkUnit(unitValue, unit);
+    if (unitCheck.error) {
+      setUnitError(unitCheck.error);
+      return;
+    }
+    const optError = priceOptionsError(priceOptions, unitCheck.parsed !== undefined);
+    if (optError) {
+      setOptionsError(optError);
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -52,7 +71,12 @@ export default function QuickAddProduct({
           name: name.trim(),
           price: priceNum,
           currency,
-          variants: [],
+          unitValue: unitCheck.parsed,
+          unit: unitCheck.parsed !== undefined ? unit : undefined,
+          variants,
+          priceOptions: priceOptions
+            .filter((o) => !isBlankOption(o))
+            .map((o) => ({ unitValue: parseDraftNumber(o.unitValue), unit: o.unit, price: parseDraftNumber(o.price) })),
           imageUrls: [],
           category: category.trim() || undefined,
           isBestSeller,
@@ -62,6 +86,10 @@ export default function QuickAddProduct({
       toastSuccess('تمت إضافة المنتج بنجاح');
       setName('');
       setPrice('');
+      setUnitValue('');
+      setUnit('');
+      setPriceOptions([]);
+      setVariants(['']);
       setCategory('');
       setIsBestSeller(false);
       onAdded();
@@ -101,6 +129,29 @@ export default function QuickAddProduct({
             </select>
           </div>
         </div>
+        <UnitField
+          value={unitValue}
+          unit={unit}
+          onValueChange={(next) => {
+            setUnitValue(next);
+            setUnitError(null);
+          }}
+          onUnitChange={(next) => {
+            setUnit(next);
+            setUnitError(null);
+          }}
+          error={unitError}
+        />
+        <PriceOptionsField
+          value={priceOptions}
+          onChange={(next) => {
+            setPriceOptions(next);
+            setOptionsError(null);
+          }}
+          currencyLabel={currencyLabels[currency]}
+          error={optionsError}
+        />
+        <VariantsField value={variants} onChange={setVariants} />
         <CategoryAutocomplete label="التصنيف" value={category} onChange={setCategory} placeholder="اختر أو اكتب الفئة" />
         <div className="flex items-center justify-between card rounded-[12px] px-3.5 py-3">
           <div>

@@ -39,7 +39,7 @@ export async function fetchStoreProductStats(): Promise<StoreProductStats[]> {
     fetchAllRows((from, to) =>
       supabase
         .from('products')
-        .select('store_id, price, stores!inner(id)')
+        .select('store_id, price, price_options, stores!inner(id)')
         .is('stores.deleted_at', null)
         .order('id')
         .range(from, to),
@@ -54,7 +54,9 @@ export async function fetchStoreProductStats(): Promise<StoreProductStats[]> {
     const entry = stats.get(p.store_id);
     if (!entry) continue;
     entry.total += 1;
-    if (Number(p.price ?? 0) > 0) entry.priced += 1;
+    // مسعّر فقط إذا كان السعر الأساسي وكل السعات الإضافية بسعر أكبر من 0
+    const options: { price?: unknown }[] = Array.isArray(p.price_options) ? p.price_options : [];
+    if (Number(p.price ?? 0) > 0 && options.every((o) => Number(o?.price ?? 0) > 0)) entry.priced += 1;
     else entry.unpriced += 1;
   }
   return [...stats.values()];

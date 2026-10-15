@@ -26,6 +26,18 @@ export function formatUnit(value?: number, unit?: string, labels: Record<string,
   return `${amount} ${labels[unit] ?? unit}`;
 }
 
+/** أقل وأعلى سعر بين السعة الأساسية والسعات الإضافية (لعرض «من … »). */
+export function priceRange(product: { price: number; priceOptions: { price: number }[] }): { min: number; max: number } {
+  const prices = [product.price, ...product.priceOptions.map((o) => o.price)];
+  return { min: Math.min(...prices), max: Math.max(...prices) };
+}
+
+/** سعر بطاقة المنتج: «من أقل سعر» إن كانت له سعات إضافية، وإلا سعره المعتاد. */
+export function formatProductPrice(product: { price: number; currency: string; priceOptions: { price: number }[] }): string {
+  if (product.priceOptions.length === 0) return formatPrice(product.price, product.currency);
+  return `من ${formatPrice(priceRange(product).min, product.currency)}`;
+}
+
 export function formatDateTime(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value;
   const local = new Date(date);

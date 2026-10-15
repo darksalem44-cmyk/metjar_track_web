@@ -10,7 +10,7 @@ import type {
   UserRole,
 } from '@/lib/types';
 import { currencyLabels, translateError, unitLabels } from '@/lib/constants';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, formatUnit } from '@/lib/utils';
 import type { Row } from './base';
 
 /** الدور المخزَّن فعلياً في activity_events.actor_role هو واحد من هذه القيم الثلاث فقط. */
@@ -326,6 +326,7 @@ const detailFieldOrder = [
   'unit_value',
   'unit',
   'variants',
+  'price_options',
   'category',
   'description',
   'address',
@@ -350,6 +351,7 @@ const detailFieldLabels: Record<string, string> = {
   unit_value: 'السعة',
   unit: 'الوحدة',
   variants: 'المتغيرات',
+  price_options: 'السعات الإضافية',
   category: 'التصنيف',
   description: 'الوصف',
   address: 'العنوان',
@@ -378,7 +380,14 @@ function formatDetailValue(key: string, value: unknown, details: EventDetails): 
   if (Array.isArray(value)) {
     if (value.length === 0) return '—';
     // المتغيرات نصوص قصيرة تُعرض كما هي، وباقي المصفوفات (الصور) بعددها فقط
-    return key === 'variants' ? value.join('، ') : `${value.length} عنصر`;
+    if (key === 'variants') return value.join('، ');
+    if (key === 'price_options') {
+      const code = String(details['currency'] ?? 'SYP') as CurrencyCode;
+      return value
+        .map((o) => `${formatUnit(Number(o?.unit_value), String(o?.unit ?? ''), unitLabels)}: ${formatPrice(Number(o?.price), currencyLabels[code] ?? code)}`)
+        .join('، ');
+    }
+    return `${value.length} عنصر`;
   }
   if (typeof value === 'object') return '—';
 

@@ -9,7 +9,8 @@ import { fetchProductsByStore, countProductsByStore } from '@/lib/data/products'
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import type { Branch, Product } from '@/lib/types';
 import { deleteImageObjects, filterStoredPaths } from '@/lib/supabase';
-import { formatDistanceText, relativeTime, formatPrice, formatDateTime } from '@/lib/utils';
+import { formatDistanceText, relativeTime, formatDateTime, formatProductPrice, formatUnit } from '@/lib/utils';
+import { unitLabels } from '@/lib/constants';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Chip, Button, CenteredSpinner, EmptyState } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
@@ -368,9 +369,12 @@ export default function StoreDetails({ storeId }: { storeId: string }) {
                 </div>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[12px] font-bold text-[var(--text)] truncate">{p.name}</span>
+                  {p.unit && (
+                    <span className="block text-[11px] text-[var(--text-secondary)]">{formatUnit(p.unitValue, p.unit, unitLabels)}</span>
+                  )}
                   {p.isBestSeller && <Chip tone="orange" label="الأنسب مبيعاً" className="mt-0.5" />}
                 </span>
-                <span className="text-[12px] font-bold text-[var(--primary)]">{formatPrice(p.price, p.currency)}</span>
+                <span className="text-[12px] font-bold text-[var(--primary)]">{formatProductPrice(p)}</span>
               </button>
             ))}
           </div>

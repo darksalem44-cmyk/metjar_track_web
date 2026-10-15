@@ -1,5 +1,5 @@
 ﻿import { supabase } from '@/lib/supabase';
-import type { Product, CurrencyCode } from '@/lib/types';
+import type { Product, CurrencyCode, PriceOption } from '@/lib/types';
 import { translateError } from '@/lib/constants';
 import { resolvePage, type Row, type PageParams, type PageResult } from './base';
 import { cacheBump, cacheKey, cacheGet } from '@/lib/cache';
@@ -9,7 +9,7 @@ const COUNT_TTL_MS = 60 * 1000;
 
 /** الأعمدة التي يقرؤها mapProduct — تمنع سحب JSON كامل لكل منتج في كل صفحة. */
 const PRODUCT_SELECT =
-  'id, store_id, branch_id, name, price, currency, unit_value, unit, variants, images_url, description, category, is_best_seller, created_by, created_at, updated_at';
+  'id, store_id, branch_id, name, price, currency, unit_value, unit, variants, price_options, images_url, description, category, is_best_seller, created_by, created_at, updated_at';
 
 export function mapProduct(row: Row): Product {
   return {
@@ -22,6 +22,7 @@ export function mapProduct(row: Row): Product {
     unitValue: row.unit_value != null && row.unit ? Number(row.unit_value) : undefined,
     unit: row.unit_value != null && row.unit ? row.unit : undefined,
     variants: row.variants ?? [],
+    priceOptions: mapPriceOptions(row.price_options),
     imageUrls: row.images_url ?? [],
     description: row.description ?? undefined,
     category: row.category ?? undefined,
@@ -41,8 +42,18 @@ export interface ProductListParams extends PageParams {
   unpricedOnly?: boolean;
 }
 
-/** شرط المنتجات غير المسعّرة: السعر فارغ أو لا يزيد عن 0 (مطابق لإحصائية المتاجر). */
-const UNPRICED_FILTER = 'price.is.null,price.lte.0';
+/**
+ * شرط المنتجات غير المسعّرة (مطابق لإحصائية المتاجر): السعر الأساسي فارغ أو 0،
+ * أو إحدى السعات الإضافية بسعر 0.
+ */
+const UNPRICED_FILTER = 'price.is.null,price.lte.0,price_options.cs.[{"price":0}]';
+
+function mapPriceOptions(raw: unknown): PriceOption[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((o) => ({ unitValue: Number(o?.unit_value), unit: String(o?.unit ?? ''), price: Number(o?.price) }))
+    .filter((o) => o.unitValue > 0 && o.unit && Number.isFinite(o.price));
+}
 
 /**
  * ربط داخلي مع جدول المتاجر: يفلتر المنتجات التابعة لمتاجر محذوفة ناعماً
@@ -174,6 +185,7 @@ export interface ProductInput {
   unitValue?: number;
   unit?: string;
   variants: string[];
+  priceOptions: PriceOption[];
   imageUrls: string[];
   description?: string;
   category?: string;
@@ -183,6 +195,14 @@ export interface ProductInput {
 /** يحذف الفراغات والمتغيرات الفارغة والمكررة (قيد products_variants_no_blank_check). */
 export function cleanVariants(values: string[]): string[] {
   return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+}
+
+/** السعات الإضافية كما تُخزَّن؛ تُفرَّغ إن لم تكن للمنتج سعة أساسية (قيد products_price_options_check). */
+function priceOptionsColumn(input: ProductInput): { unit_value: number; unit: string; price: number }[] {
+  if (unitColumns(input).unit === null) return [];
+  return input.priceOptions
+    .filter((o) => o.unitValue > 0 && o.unit && o.price >= 0)
+    .map((o) => ({ unit_value: o.unitValue, unit: o.unit, price: o.price }));
 }
 
 /** عمودا السعة: يُرسلان معاً أو null معاً (قيد products_unit_pair_check). */
@@ -200,6 +220,7 @@ export async function createProduct(input: ProductInput, createdBy: string): Pro
     currency: input.currency,
     ...unitColumns(input),
     variants: cleanVariants(input.variants),
+    price_options: priceOptionsColumn(input),
     images_url: input.imageUrls,
     description: input.description || null,
     category: input.category || null,
@@ -221,6 +242,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
     currency: input.currency,
     ...unitColumns(input),
     variants: cleanVariants(input.variants),
+    price_options: priceOptionsColumn(input),
     images_url: input.imageUrls,
     description: input.description || null,
     category: input.category || null,

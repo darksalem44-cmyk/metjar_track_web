@@ -8,13 +8,13 @@ import { fetchStoreById } from '@/lib/data/stores';
 import { getCreatorNames } from '@/lib/data/stores';
 import { canDelete, canEdit } from '@/lib/permissions';
 import { deleteImageObjects, isStoredPath } from '@/lib/supabase';
-import { formatPrice, formatUnit, relativeTime, cn } from '@/lib/utils';
+import { formatPrice, formatUnit, priceRange, relativeTime, cn } from '@/lib/utils';
 import { unitLabels } from '@/lib/constants';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Chip, Button, CenteredSpinner } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
 import { ResolvedImage } from '@/components/ui/images';
-import { Layers, Pencil, Trash2, Store as StoreIcon } from 'lucide-react';
+import { Layers, Pencil, Scale, Trash2, Store as StoreIcon } from 'lucide-react';
 
 export default function ProductDetails({ productId }: { productId: string }) {
   const router = useRouter();
@@ -112,7 +112,9 @@ export default function ProductDetails({ productId }: { productId: string }) {
         </div>
         <div className="p-4">
           <p className="text-[20px] font-bold text-[var(--primary)]" dir="ltr">
-            {formatPrice(product.price, product.currency)}
+            {product.priceOptions.length > 0
+              ? `${formatPrice(priceRange(product).min, product.currency)} – ${formatPrice(priceRange(product).max, product.currency)}`
+              : formatPrice(product.price, product.currency)}
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-2">
             {product.unit && <Chip tone="accent" label={formatUnit(product.unitValue, product.unit, unitLabels)} />}
@@ -130,6 +132,28 @@ export default function ProductDetails({ productId }: { productId: string }) {
               <button key={i} type="button" onClick={() => setViewerIndex(i)} className="w-16 h-16 shrink-0 rounded-xl overflow-hidden border border-[var(--border)]">
                 <ResolvedImage src={u} alt="" className="w-full h-full" />
               </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {product.priceOptions.length > 0 && (
+        <div className="card p-4 mb-5">
+          <h3 className="text-[13px] font-bold text-[var(--text)] mb-2 flex items-center gap-1.5">
+            <Scale className="w-4 h-4 text-[var(--primary)]" />
+            السعات والأسعار
+            <Chip tone="neutral" label={product.priceOptions.length + 1} />
+          </h3>
+          <div className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] overflow-hidden">
+            {[{ unitValue: product.unitValue ?? 0, unit: product.unit ?? '', price: product.price }, ...product.priceOptions].map((o, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-[13px]">
+                <span className="font-semibold text-[var(--text)]">
+                  {formatUnit(o.unitValue, o.unit, unitLabels)}
+                </span>
+                <span className={cn('font-bold tnum', o.price > 0 ? 'text-[var(--primary)]' : 'text-[var(--warning)]')} dir="ltr">
+                  {formatPrice(o.price, product.currency)}
+                </span>
+              </div>
             ))}
           </div>
         </div>

@@ -10,7 +10,7 @@ import type { Product, Store } from '@/lib/types';
 import { PAGE_SIZE } from '@/lib/data/base';
 import { cacheKey, cachedLoad } from '@/lib/cache';
 import { toastError } from '@/lib/toast';
-import { cn, formatPrice, formatUnit } from '@/lib/utils';
+import { cn, formatUnit, formatProductPrice } from '@/lib/utils';
 import { unitLabels } from '@/lib/constants';
 import { Plus, Package, ChevronRight, ChevronDown, Check, Store as StoreIcon, CircleOff, X } from 'lucide-react';
 import { Button, Chip, CenteredSpinner, EmptyState, PageHeader, PaginationFooter } from '@/components/ui/controls';
@@ -381,7 +381,7 @@ export default function ProductsPage({ scope, unpriced = false }: { scope: Scope
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-[13px] font-bold text-[var(--primary)]" dir="ltr">
-                      {formatPrice(p.price, p.currency)}
+                      {formatProductPrice(p)}
                     </span>
                     <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                   </div>

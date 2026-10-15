@@ -82,6 +82,13 @@ export interface Branch {
   updatedAt: string;
 }
 
+/** سعة إضافية بسعرها الخاص (العملة هي عملة المنتج نفسه). */
+export interface PriceOption {
+  unitValue: number;
+  unit: string;
+  price: number;
+}
+
 export interface Product {
   id: string;
   storeId: string;
@@ -95,6 +102,8 @@ export interface Product {
   unit?: string;
   /** متغيرات المنتج (لون، مقاس، نكهة…)، مصفوفة فارغة إن لم توجد. */
   variants: string[];
+  /** سعات إضافية غير السعة الأساسية (price/unitValue/unit)؛ فارغة للمنتج ذي السعة الواحدة. */
+  priceOptions: PriceOption[];
   imageUrls: string[];
   description?: string;
   category?: string;
