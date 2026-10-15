@@ -14,7 +14,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Chip, Button, CenteredSpinner } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
 import { ResolvedImage } from '@/components/ui/images';
-import { Pencil, Trash2, Store as StoreIcon } from 'lucide-react';
+import { Layers, Pencil, Trash2, Store as StoreIcon } from 'lucide-react';
 
 export default function ProductDetails({ productId }: { productId: string }) {
   const router = useRouter();
@@ -130,6 +130,26 @@ export default function ProductDetails({ productId }: { productId: string }) {
               <button key={i} type="button" onClick={() => setViewerIndex(i)} className="w-16 h-16 shrink-0 rounded-xl overflow-hidden border border-[var(--border)]">
                 <ResolvedImage src={u} alt="" className="w-full h-full" />
               </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {product.variants.length > 0 && (
+        <div className="card p-4 mb-5">
+          <h3 className="text-[13px] font-bold text-[var(--text)] mb-2 flex items-center gap-1.5">
+            <Layers className="w-4 h-4 text-[var(--primary)]" />
+            المتغيرات
+            <Chip tone="neutral" label={product.variants.length} />
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {product.variants.map((v) => (
+              <span
+                key={v}
+                className="inline-flex items-center rounded-full border border-[var(--border-light)] bg-[var(--surface-variant)] px-3 py-1 text-[12.5px] font-semibold text-[var(--text)]"
+              >
+                {v}
+              </span>
             ))}
           </div>
         </div>

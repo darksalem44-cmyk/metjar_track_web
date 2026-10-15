@@ -9,7 +9,7 @@ const COUNT_TTL_MS = 60 * 1000;
 
 /** الأعمدة التي يقرؤها mapProduct — تمنع سحب JSON كامل لكل منتج في كل صفحة. */
 const PRODUCT_SELECT =
-  'id, store_id, branch_id, name, price, currency, unit_value, unit, images_url, description, category, is_best_seller, created_by, created_at, updated_at';
+  'id, store_id, branch_id, name, price, currency, unit_value, unit, variants, images_url, description, category, is_best_seller, created_by, created_at, updated_at';
 
 export function mapProduct(row: Row): Product {
   return {
@@ -21,6 +21,7 @@ export function mapProduct(row: Row): Product {
     currency: (row.currency ?? 'SYP') as CurrencyCode,
     unitValue: row.unit_value != null && row.unit ? Number(row.unit_value) : undefined,
     unit: row.unit_value != null && row.unit ? row.unit : undefined,
+    variants: row.variants ?? [],
     imageUrls: row.images_url ?? [],
     description: row.description ?? undefined,
     category: row.category ?? undefined,
@@ -172,10 +173,16 @@ export interface ProductInput {
   /** السعة والوحدة معاً أو لا شيء. */
   unitValue?: number;
   unit?: string;
+  variants: string[];
   imageUrls: string[];
   description?: string;
   category?: string;
   isBestSeller: boolean;
+}
+
+/** يحذف الفراغات والمتغيرات الفارغة والمكررة (قيد products_variants_no_blank_check). */
+export function cleanVariants(values: string[]): string[] {
+  return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
 }
 
 /** عمودا السعة: يُرسلان معاً أو null معاً (قيد products_unit_pair_check). */
@@ -192,6 +199,7 @@ export async function createProduct(input: ProductInput, createdBy: string): Pro
     price: input.price,
     currency: input.currency,
     ...unitColumns(input),
+    variants: cleanVariants(input.variants),
     images_url: input.imageUrls,
     description: input.description || null,
     category: input.category || null,
@@ -212,6 +220,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
     price: input.price,
     currency: input.currency,
     ...unitColumns(input),
+    variants: cleanVariants(input.variants),
     images_url: input.imageUrls,
     description: input.description || null,
     category: input.category || null,

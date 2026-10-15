@@ -52,6 +52,7 @@ export default function QuickAddProduct({
           name: name.trim(),
           price: priceNum,
           currency,
+          variants: [],
           imageUrls: [],
           category: category.trim() || undefined,
           isBestSeller,

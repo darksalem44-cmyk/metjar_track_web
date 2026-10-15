@@ -14,6 +14,7 @@ import { TextField, TextArea, CategoryAutocomplete } from '@/components/ui/field
 import { ImagePicker } from '@/components/ui/images';
 import { Package, Ruler, Split } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import VariantsField from './VariantsField';
 
 export default function ProductForm({ storeId, productId }: { storeId: string; productId?: string }) {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
   const [currency, setCurrency] = useState<CurrencyCode>('SYP');
   const [unitValue, setUnitValue] = useState('');
   const [unit, setUnit] = useState('');
+  const [variants, setVariants] = useState<string[]>(['']);
   const [category, setCategory] = useState('');
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [branchId, setBranchId] = useState('');
@@ -60,6 +62,7 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
         setCurrency(p.currency);
         setUnitValue(p.unitValue !== undefined ? String(p.unitValue) : '');
         setUnit(p.unit ?? '');
+        setVariants(p.variants.length > 0 ? p.variants : ['']);
         setCategory(p.category ?? '');
         setIsBestSeller(p.isBestSeller);
         setBranchId(p.branchId ?? '');
@@ -107,6 +110,7 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
         currency,
         unitValue: hasUnitValue ? unitNum : undefined,
         unit: hasUnitValue ? unit : undefined,
+        variants,
         imageUrls,
         description: description.trim() || undefined,
         category: category.trim() || undefined,
@@ -224,6 +228,8 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
               <p className="text-[11px] text-[var(--text-muted)] mt-1">مثال: 500 غ، 1.5 لتر، 12 قطعة</p>
             )}
           </div>
+
+          <VariantsField value={variants} onChange={setVariants} />
 
           <CategoryAutocomplete label="التصنيف" value={category} onChange={setCategory} placeholder="اختر أو اكتب الفئة" />
 

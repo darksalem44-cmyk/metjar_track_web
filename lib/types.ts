@@ -93,6 +93,8 @@ export interface Product {
   unitValue?: number;
   /** رمز وحدة القياس (kg, ml, piece …) — انظر unitGroups في constants. */
   unit?: string;
+  /** متغيرات المنتج (لون، مقاس، نكهة…)، مصفوفة فارغة إن لم توجد. */
+  variants: string[];
   imageUrls: string[];
   description?: string;
   category?: string;

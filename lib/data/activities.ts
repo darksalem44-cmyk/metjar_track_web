@@ -325,6 +325,7 @@ const detailFieldOrder = [
   'currency',
   'unit_value',
   'unit',
+  'variants',
   'category',
   'description',
   'address',
@@ -348,6 +349,7 @@ const detailFieldLabels: Record<string, string> = {
   currency: 'العملة',
   unit_value: 'السعة',
   unit: 'الوحدة',
+  variants: 'المتغيرات',
   category: 'التصنيف',
   description: 'الوصف',
   address: 'العنوان',
@@ -373,7 +375,11 @@ function detailLabel(key: string): string {
 function formatDetailValue(key: string, value: unknown, details: EventDetails): string {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'boolean') return value ? 'نعم' : 'لا';
-  if (Array.isArray(value)) return value.length === 0 ? '—' : `${value.length} عنصر`;
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '—';
+    // المتغيرات نصوص قصيرة تُعرض كما هي، وباقي المصفوفات (الصور) بعددها فقط
+    return key === 'variants' ? value.join('، ') : `${value.length} عنصر`;
+  }
   if (typeof value === 'object') return '—';
 
   if (key === 'price') {
