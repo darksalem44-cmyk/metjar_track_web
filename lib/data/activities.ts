@@ -9,7 +9,7 @@ import type {
   EventDetails,
   UserRole,
 } from '@/lib/types';
-import { currencyLabels, translateError } from '@/lib/constants';
+import { currencyLabels, translateError, unitLabels } from '@/lib/constants';
 import { formatPrice } from '@/lib/utils';
 import type { Row } from './base';
 
@@ -323,6 +323,8 @@ const detailFieldOrder = [
   'name',
   'price',
   'currency',
+  'unit_value',
+  'unit',
   'category',
   'description',
   'address',
@@ -344,6 +346,8 @@ const detailFieldLabels: Record<string, string> = {
   name: 'الاسم',
   price: 'السعر',
   currency: 'العملة',
+  unit_value: 'السعة',
+  unit: 'الوحدة',
   category: 'التصنيف',
   description: 'الوصف',
   address: 'العنوان',
@@ -382,6 +386,7 @@ function formatDetailValue(key: string, value: unknown, details: EventDetails): 
   const text = String(value).trim();
   if (!text) return '—';
   if (key === 'currency') return currencyLabels[text as CurrencyCode] ?? text;
+  if (key === 'unit') return unitLabels[text] ?? text;
   if (key === 'open_at' || key === 'close_at') return text.slice(0, 5);
   if (typeof value === 'number' && !Number.isInteger(value)) {
     return String(Number(value.toFixed(6)));

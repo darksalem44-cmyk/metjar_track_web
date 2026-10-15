@@ -19,6 +19,13 @@ export function formatPrice(price: number, currency: string = 'SYP'): string {
   return `${value} ${currency}`;
 }
 
+/** السعة مع وحدتها للعرض (مثال «500 غ»)، أو نص فارغ إن لم تُحدَّد. */
+export function formatUnit(value?: number, unit?: string, labels: Record<string, string> = {}): string {
+  if (value === undefined || !unit) return '';
+  const amount = Number.isInteger(value) ? value.toString() : String(Number(value.toFixed(3)));
+  return `${amount} ${labels[unit] ?? unit}`;
+}
+
 export function formatDateTime(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value;
   const local = new Date(date);

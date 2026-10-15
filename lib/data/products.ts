@@ -9,7 +9,7 @@ const COUNT_TTL_MS = 60 * 1000;
 
 /** الأعمدة التي يقرؤها mapProduct — تمنع سحب JSON كامل لكل منتج في كل صفحة. */
 const PRODUCT_SELECT =
-  'id, store_id, branch_id, name, price, currency, images_url, description, category, is_best_seller, created_by, created_at, updated_at';
+  'id, store_id, branch_id, name, price, currency, unit_value, unit, images_url, description, category, is_best_seller, created_by, created_at, updated_at';
 
 export function mapProduct(row: Row): Product {
   return {
@@ -19,6 +19,8 @@ export function mapProduct(row: Row): Product {
     name: row.name,
     price: row.price ?? 0,
     currency: (row.currency ?? 'SYP') as CurrencyCode,
+    unitValue: row.unit_value != null && row.unit ? Number(row.unit_value) : undefined,
+    unit: row.unit_value != null && row.unit ? row.unit : undefined,
     imageUrls: row.images_url ?? [],
     description: row.description ?? undefined,
     category: row.category ?? undefined,
@@ -167,10 +169,19 @@ export interface ProductInput {
   name: string;
   price: number;
   currency: CurrencyCode;
+  /** السعة والوحدة معاً أو لا شيء. */
+  unitValue?: number;
+  unit?: string;
   imageUrls: string[];
   description?: string;
   category?: string;
   isBestSeller: boolean;
+}
+
+/** عمودا السعة: يُرسلان معاً أو null معاً (قيد products_unit_pair_check). */
+function unitColumns(input: ProductInput): { unit_value: number | null; unit: string | null } {
+  const valid = input.unitValue !== undefined && input.unitValue > 0 && !!input.unit;
+  return { unit_value: valid ? input.unitValue! : null, unit: valid ? input.unit! : null };
 }
 
 export async function createProduct(input: ProductInput, createdBy: string): Promise<Product> {
@@ -180,6 +191,7 @@ export async function createProduct(input: ProductInput, createdBy: string): Pro
     name: input.name,
     price: input.price,
     currency: input.currency,
+    ...unitColumns(input),
     images_url: input.imageUrls,
     description: input.description || null,
     category: input.category || null,
@@ -199,6 +211,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Pr
     name: input.name,
     price: input.price,
     currency: input.currency,
+    ...unitColumns(input),
     images_url: input.imageUrls,
     description: input.description || null,
     category: input.category || null,

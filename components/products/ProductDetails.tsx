@@ -8,7 +8,8 @@ import { fetchStoreById } from '@/lib/data/stores';
 import { getCreatorNames } from '@/lib/data/stores';
 import { canDelete, canEdit } from '@/lib/permissions';
 import { deleteImageObjects, isStoredPath } from '@/lib/supabase';
-import { formatPrice, relativeTime, cn } from '@/lib/utils';
+import { formatPrice, formatUnit, relativeTime, cn } from '@/lib/utils';
+import { unitLabels } from '@/lib/constants';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Chip, Button, CenteredSpinner } from '@/components/ui/controls';
 import { Modal, ConfirmDialog } from '@/components/ui/modals';
@@ -114,6 +115,7 @@ export default function ProductDetails({ productId }: { productId: string }) {
             {formatPrice(product.price, product.currency)}
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-2">
+            {product.unit && <Chip tone="accent" label={formatUnit(product.unitValue, product.unit, unitLabels)} />}
             {product.category && <Chip tone="primary" label={product.category} />}
             <Chip tone="neutral" icon={<StoreIcon className="w-3 h-3" />} label={storeName || 'متجر'} />
           </div>

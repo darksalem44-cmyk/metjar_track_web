@@ -89,6 +89,10 @@ export interface Product {
   name: string;
   price: number;
   currency: CurrencyCode;
+  /** سعة/كمية العبوة (مثال 500)، تأتي دائماً مع unit. */
+  unitValue?: number;
+  /** رمز وحدة القياس (kg, ml, piece …) — انظر unitGroups في constants. */
+  unit?: string;
   imageUrls: string[];
   description?: string;
   category?: string;

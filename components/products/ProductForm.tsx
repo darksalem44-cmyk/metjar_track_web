@@ -6,13 +6,14 @@ import { useProfile } from '@/components/ProfileContext';
 import { createProduct, updateProduct, fetchProductById } from '@/lib/data/products';
 import { fetchBranchesByStore } from '@/lib/data/branches';
 import { deleteImageObjects, isStoredPath } from '@/lib/supabase';
-import { currencyOptions } from '@/lib/constants';
+import { currencyOptions, unitGroups } from '@/lib/constants';
 import type { CurrencyCode, Product } from '@/lib/types';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { PageHeader, Button, Toggle, CenteredSpinner } from '@/components/ui/controls';
 import { TextField, TextArea, CategoryAutocomplete } from '@/components/ui/fields';
 import { ImagePicker } from '@/components/ui/images';
-import { Package, Split } from 'lucide-react';
+import { Package, Ruler, Split } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function ProductForm({ storeId, productId }: { storeId: string; productId?: string }) {
   const router = useRouter();
@@ -25,6 +26,8 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState<CurrencyCode>('SYP');
+  const [unitValue, setUnitValue] = useState('');
+  const [unit, setUnit] = useState('');
   const [category, setCategory] = useState('');
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [branchId, setBranchId] = useState('');
@@ -55,6 +58,8 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
         setName(p.name);
         setPrice(String(p.price));
         setCurrency(p.currency);
+        setUnitValue(p.unitValue !== undefined ? String(p.unitValue) : '');
+        setUnit(p.unit ?? '');
         setCategory(p.category ?? '');
         setIsBestSeller(p.isBestSeller);
         setBranchId(p.branchId ?? '');
@@ -81,6 +86,17 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
       setError('السعر غير صحيح');
       return;
     }
+    // السعة اختيارية، لكن القيمة والوحدة تأتيان معاً
+    const unitNum = Number(unitValue.replace(/,/g, ''));
+    const hasUnitValue = unitValue.trim() !== '';
+    if (hasUnitValue && (Number.isNaN(unitNum) || unitNum <= 0)) {
+      setError('أدخل السعة بقيمة أكبر من 0');
+      return;
+    }
+    if (hasUnitValue !== !!unit) {
+      setError(hasUnitValue ? 'اختر وحدة القياس' : 'أدخل السعة بقيمة أكبر من 0');
+      return;
+    }
     setSaving(true);
     try {
       const input = {
@@ -89,6 +105,8 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
         name: name.trim(),
         price: priceNum,
         currency,
+        unitValue: hasUnitValue ? unitNum : undefined,
+        unit: hasUnitValue ? unit : undefined,
         imageUrls,
         description: description.trim() || undefined,
         category: category.trim() || undefined,
@@ -159,6 +177,52 @@ export default function ProductForm({ storeId, productId }: { storeId: string; p
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="product-unit-value" className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--text-secondary)] mb-1.5">
+              <Ruler className="w-3.5 h-3.5" />
+              السعة / الوحدة
+              <span className="font-normal text-[var(--text-muted)]">(اختياري)</span>
+            </label>
+            <div
+              className={cn(
+                'flex items-stretch rounded-xl border bg-[var(--input)] overflow-hidden focus-within:border-[var(--primary)] transition-colors',
+                error === 'أدخل السعة بقيمة أكبر من 0' || error === 'اختر وحدة القياس' ? 'border-[var(--error)]' : 'border-[var(--border)]',
+              )}
+            >
+              <input
+                id="product-unit-value"
+                value={unitValue}
+                onChange={(e) => setUnitValue(e.target.value.replace(/[^\d.,]/g, ''))}
+                placeholder="مثال: 500"
+                dir="ltr"
+                inputMode="decimal"
+                className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[13px] text-[var(--text)] outline-none"
+              />
+              <select
+                aria-label="وحدة القياس"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                className="w-[44%] max-w-[180px] bg-[var(--surface-variant)] border-s border-[var(--border)] px-3 py-2.5 text-[13px] text-[var(--text)] outline-none"
+              >
+                <option value="">اختر الوحدة</option>
+                {unitGroups.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.units.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {u.label} ({u.value})
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            {error === 'أدخل السعة بقيمة أكبر من 0' || error === 'اختر وحدة القياس' ? (
+              <p className="text-[11.5px] text-[var(--error)] mt-1">{error}</p>
+            ) : (
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">مثال: 500 غ، 1.5 لتر، 12 قطعة</p>
+            )}
           </div>
 
           <CategoryAutocomplete label="التصنيف" value={category} onChange={setCategory} placeholder="اختر أو اكتب الفئة" />

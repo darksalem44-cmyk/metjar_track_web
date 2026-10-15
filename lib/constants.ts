@@ -222,6 +222,66 @@ export const roleLabels: Record<UserRole, string> = {
   manager: 'المدير',
 };
 
+/** وحدات قياس المنتج مجمّعة حسب النوع؛ الرمز يُخزَّن في products.unit. */
+export const unitGroups: { label: string; units: { value: string; label: string }[] }[] = [
+  {
+    label: 'الوزن',
+    units: [
+      { value: 'mg', label: 'ملغ' },
+      { value: 'g', label: 'غ' },
+      { value: 'kg', label: 'كغ' },
+      { value: 't', label: 'طن' },
+      { value: 'oz', label: 'أونصة' },
+      { value: 'lb', label: 'رطل' },
+    ],
+  },
+  {
+    label: 'الحجم',
+    units: [
+      { value: 'ml', label: 'مل' },
+      { value: 'cl', label: 'سل' },
+      { value: 'l', label: 'لتر' },
+      { value: 'gal', label: 'غالون' },
+      { value: 'm3', label: 'م³' },
+    ],
+  },
+  {
+    label: 'الطول',
+    units: [
+      { value: 'mm', label: 'ملم' },
+      { value: 'cm', label: 'سم' },
+      { value: 'm', label: 'م' },
+      { value: 'in', label: 'إنش' },
+    ],
+  },
+  {
+    label: 'المساحة',
+    units: [
+      { value: 'cm2', label: 'سم²' },
+      { value: 'm2', label: 'م²' },
+    ],
+  },
+  {
+    label: 'العدد والتعبئة',
+    units: [
+      { value: 'piece', label: 'قطعة' },
+      { value: 'pair', label: 'زوج' },
+      { value: 'dozen', label: 'دزينة' },
+      { value: 'pack', label: 'عبوة' },
+      { value: 'box', label: 'علبة' },
+      { value: 'carton', label: 'كرتونة' },
+      { value: 'bag', label: 'كيس' },
+      { value: 'roll', label: 'لفة' },
+      { value: 'set', label: 'طقم' },
+    ],
+  },
+];
+
+/** الاسم المختصر لكل رمز وحدة. */
+export const unitLabels: Record<string, string> = Object.fromEntries(
+  unitGroups.flatMap((g) => g.units.map((u) => [u.value, u.label])),
+);
+
 export const currencyLabels: Record<CurrencyCode, string> = {
   SYP: 'ل.س',
   USD: 'دولار',
